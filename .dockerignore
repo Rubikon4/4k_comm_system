@@ -1,0 +1,36 @@
+# Git
+.git/
+.gitignore
+
+# Переменные среды
+.env
+.venv/
+env/
+
+# Python кэш
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Документация (не нужна в образе)
+docs/
+*.md
+!README.md
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Тесты и CI
+.github/
+coverage/
+.coverage
+htmlcov/
+
+# Claude
+.claude/
