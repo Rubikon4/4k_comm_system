@@ -10,9 +10,9 @@
 | Этап | Что | Дней | Чатов | Статус |
 |------|-----|------|-------|--------|
 | 0 | Документация и архитектурные решения | 0.5 | 1 | ✅ закрыт |
-| 1 | Базовая инфраструктура (Django + Docker + core) | 1.5 | 1 | 🔵 текущий |
-| 2 | Аутентификация (accounts, User+Profile, login/profile) | 2 | 1 | ⚪ ожидает |
-| 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | ⚪ ожидает |
+| 1 | Базовая инфраструктура (Django + Docker + core) | 1.5 | 1 | ✅ закрыт |
+| 2 | Аутентификация (accounts, User+Profile, login/profile) | 2 | 1 | ✅ закрыт |
+| 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | 🔵 текущий |
 | 4 | Задачи (модели, статусы, история, повторение) | 3 | 2 | ⚪ ожидает |
 | 5 | Чаты (модели, polling, страница, мьюты) | 3 | 2 | ⚪ ожидает |
 | 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | ⚪ ожидает |
@@ -215,16 +215,186 @@ Pillow>=10.0
 
 ---
 
-## Этап 2 — Аутентификация (placeholder)
+## Этап 2 — Аутентификация
 
-Будет детализирован при старте этапа 2.
+### Цель этапа
 
-**Кратко:** apps/accounts/, Profile через OneToOneField, signal автосоздания, login/logout views, страница /profile/ с редактированием, ModelAdmin.
+Расширение профиля пользователя, вход/выход, страница `/profile/` с редактированием
+данных. Все страницы приложения требуют аутентификации.
 
-**Что читать:** `docs/data_model.md` раздел 1, `docs/permissions.md` раздел 1, `docs/architecture.md` раздел 6, `docs/ui.md` раздел 10.
+### Что читать перед началом этапа
+
+| Документ | Разделы | Зачем |
+|----------|---------|-------|
+| `docs/data_model.md` | 1 | поля Profile, связь с User |
+| `docs/permissions.md` | 1 | системные роли |
+| `docs/ui.md` | 10 | страница профиля |
+
+### Блоки
+
+#### Блок 2.1 — Profile, сигналы, admin
+
+- `apps/accounts/` — Django-приложение, модель `Profile` (OneToOneField, TextChoices)
+- `apps/accounts/signals.py` — автосоздание Profile при создании User
+- `apps/accounts/apps.py` — `ready()` импортирует сигналы
+- `apps/accounts/admin.py` — `ProfileInline` в `UserAdmin`
+- Миграции: `0001_initial` (таблица), `0002` (бэкфилл существующих пользователей)
+- `config/settings/base.py` — `LOGIN_URL`, `LOGIN_REDIRECT_URL`, `LOGOUT_REDIRECT_URL`
+
+#### Блок 2.2 — Login/Logout + защита главной
+
+- `apps/accounts/urls.py` — маршруты `/login/`, `/logout/`
+- `templates/accounts/login.html` — Bootstrap 5 форма входа (standalone, без base.html)
+- `apps/core/views.py` — `HomeView` наследует `LoginRequiredMixin`
+- `templates/base.html` — навигация с именем пользователя и кнопкой выхода (POST)
+
+#### Блок 2.3 — Страница /profile/
+
+- `apps/accounts/forms.py` — `UserEditForm` + `ProfileEditForm` с Bootstrap-классами
+- `apps/accounts/views.py` — `profile_view` (GET/POST) + `PasswordChangeCustomView`
+- Маршруты `/profile/` и `/password-change/`
+- `templates/accounts/profile.html` — карточка аватар/роль + явный порядок полей
+- `templates/accounts/password_change.html` — редирект на `/profile/` после сохранения
+
+#### Блок 2.4 — Финализация ModelAdmin
+
+- `accounts/admin.py` — `list_display`, `search_fields`, `list_filter`, методы `get_role`, `get_position`
+
+### Критерии готовности этапа 2
+
+- ✅ `/` требует входа (редирект на `/login/` для анонима)
+- ✅ Вход и выход работают
+- ✅ Профиль доступен, поля редактируются и сохраняются
+- ✅ Аватар загружается через Docker volume (`media_data`)
+- ✅ Смена пароля работает, редирект на `/profile/`
+- ✅ Роль видна в профиле, не редактируется пользователем
+- ✅ Django Admin: поиск, фильтрация по роли, колонки имя/должность
+
+### Точки коммита
+
+**После 2.4 (обязательно):** `feat: stage 2 — authentication and user profile ready`
 
 ---
 
-## Этапы 3–9 — заглушки
+## Этап 3 — Рабочие группы
+
+### Цель этапа
+
+Реализовать модели `WorkGroup` и `WorkGroupMembership`, service layer с проверкой
+прав, CRUD-операции через Bootstrap-модалки, иерархический список групп на
+странице `/workgroups/`.
+
+### Что читать перед началом этапа
+
+| Документ | Разделы | Зачем |
+|----------|---------|-------|
+| `docs/data_model.md` | 2, 9 | поля WorkGroup/Membership, конвенции is_active |
+| `docs/permissions.md` | 2, 3 | иерархия групп, правила членства |
+| `docs/architecture.md` | service layer | defence in depth |
+| `docs/ui.md` | 6 | страница /workgroups/, модалки |
+
+### Внешние зависимости
+
+- Этап 2 закрыт: User + Profile, login/logout готовы.
+- Модель `Chat` ещё не создана (Этап 5) — автосоздание workgroup-чата реализуется
+  сигналом в Этапе 5, здесь не трогаем.
+
+### Блоки
+
+#### Блок 3.1 — App и модели
+
+**Что делаем:**
+- Создаём `apps/workgroups/` как Django app
+- `WorkGroup` — поля: `name`, `description`, `parent` FK('self', PROTECT, null=True),
+  `created_by` FK(User), `is_active`; наследует `TimestampedModel`
+- `WorkGroupMembership` — поля: `user`, `workgroup`, `local_role` (member/parent_head/child_head),
+  `added_by`, `is_active`; `unique_together = ('user', 'workgroup')`
+- Регистрируем в `INSTALLED_APPS`
+- `makemigrations` + `migrate`
+
+**Файлы создаются:**
+- `apps/workgroups/__init__.py`, `apps.py`, `models.py`, `admin.py` (заглушка)
+- `apps/workgroups/migrations/__init__.py`, `0001_initial.py`
+
+#### Блок 3.2 — ModelAdmin
+
+**Что делаем:**
+- `WorkGroupAdmin` — `list_display` (name, parent, is_active, created_by),
+  `list_filter` (is_active, parent), `search_fields` (name)
+- `WorkGroupMembershipInline` — в `WorkGroupAdmin`
+- `WorkGroupMembershipAdmin` — отдельно с фильтром по группе и пользователю
+
+**Файлы изменяются:** `apps/workgroups/admin.py`
+
+#### Блок 3.3 — Service layer
+
+**Что делаем:**
+- `apps/workgroups/permissions.py` — функции:
+  `can_create_root_group(user)`,
+  `can_create_child_group(user, parent_group)`,
+  `can_add_member(user, workgroup)`,
+  `can_deactivate_group(user, workgroup)`
+- `apps/workgroups/services.py` — функции:
+  `create_group(name, description, parent, created_by)` — создаёт группу;
+  для дочерней автоматически добавляет создателя как `parent_head`;
+  `add_member(actor, user, workgroup, local_role)` — проверяет права, создаёт Membership;
+  `deactivate_group(actor, workgroup)` — рекурсивно деактивирует поддерево + членства
+
+**Файлы создаются:** `apps/workgroups/permissions.py`, `apps/workgroups/services.py`
+
+#### Блок 3.4 — Views и URLs
+
+**Что делаем:**
+- `WorkGroupListView` — список групп: «мои» / «все доступные»; иерархия через отступ
+- AJAX-endpoints для модалок (GET → HTML-фрагмент, POST → действие):
+  `workgroup_create` (форма создания),
+  `workgroup_detail` (детали + участники),
+  `workgroup_add_member` (форма добавления участника),
+  `workgroup_deactivate` (POST-деактивация)
+- `apps/workgroups/urls.py`, подключаем в `config/urls.py`
+
+**Файлы создаются:**
+- `apps/workgroups/forms.py`, `apps/workgroups/views.py`, `apps/workgroups/urls.py`
+
+**Файлы изменяются:** `config/urls.py`, `templates/base.html` (ссылка «Группы»)
+
+#### Блок 3.5 — Шаблоны
+
+**Что делаем:**
+- `templates/workgroups/list.html` — список групп, кнопка «Создать» (по правам),
+  дочерние — с визуальным отступом
+- `templates/workgroups/_detail_modal.html` — Bootstrap modal: детали, участники,
+  дочерние группы, кнопки действий (по правам)
+- `templates/workgroups/_form_modal.html` — форма создания/редактирования группы
+- `templates/workgroups/_add_member_modal.html` — форма добавления участника
+- `static/js/modals.js` — `fetch` для загрузки и показа Bootstrap-модалок
+
+### Критерии готовности этапа 3
+
+- ✅ `/workgroups/` показывает список групп с иерархией
+- ✅ Создание корневой группы — только `admin`
+- ✅ Создание дочерней — `admin` или `headworker`
+- ✅ Создатель дочерней автоматически получает `local_role = parent_head`
+- ✅ Добавление участника через модалку с проверкой прав в service layer
+- ✅ Деактивация рекурсивно деактивирует поддерево и членства
+- ✅ Неактивные группы скрыты в UI, видны только в `/admin/`
+- ✅ Ссылка «Группы» в навигации работает
+
+### Точки коммита
+
+После 3.1–3.2: `feat(workgroups): add WorkGroup and WorkGroupMembership models`
+**После 3.5 (обязательно):** `feat: stage 3 — workgroups CRUD and hierarchy ready`
+
+### Риски этапа 3
+
+| Риск | Вероятность | Митигация |
+|------|-------------|-----------|
+| Рекурсивная деактивация — много запросов | низкая (мало групп в MVP) | `select_related` + итерация |
+| AJAX-модалки — CSRF в fetch | средняя | передавать токен из cookie через JS |
+| Синхронизация с workgroup-чатом | — | отложено до Этапа 5 |
+
+---
+
+## Этапы 4–9 — заглушки
 
 Детализируются по мере подхода. См. таблицу обзора в начале файла.

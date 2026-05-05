@@ -22,9 +22,13 @@
 - `user` — OneToOneField на User;
 - `role` — системная роль (CharField, реализован через `Profile.Role(TextChoices)`:
   значения `worker` / `headworker` / `admin`);
+- `patronymic_name` — отчество (CharField, blank=True, nullable);
 - `position` — должность (nullable);
 - `phone` — телефон (nullable);
 - `avatar` — изображение (ImageField, nullable).
+
+**При отображении ФИ:** `{{ user.last_name }} {{ user.first_name }} {{ user.profile.patronymic_name }}`
+(отчество — из Profile, имя и фамилия — из стандартных полей User).
 
 Управление возможностью входа — через `User.is_active` (стандартное поле Django).
 
