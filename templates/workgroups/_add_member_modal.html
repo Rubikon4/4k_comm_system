@@ -1,0 +1,33 @@
+<div class="modal-header">
+    <h5 class="modal-title">Добавить участника в «{{ group.name }}»</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="wg-form" method="post" action="{% url 'workgroups:add_member' group.pk %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.user.label }}</label>
+            {{ form.user }}
+            {% if form.user.errors %}
+                <div class="invalid-feedback d-block">{{ form.user.errors.0 }}</div>
+            {% endif %}
+        </div>
+        {% if group.parent %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.local_role.label }}</label>
+            {{ form.local_role }}
+            {% if form.local_role.errors %}
+                <div class="invalid-feedback d-block">{{ form.local_role.errors.0 }}</div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-info small">
+            В родительской группе локальная роль не применяется — участники действуют по системной роли.
+        </div>
+        {% endif %}
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+    <button type="submit" form="wg-form" class="btn btn-primary">Добавить</button>
+</div>

@@ -12,7 +12,7 @@
 | 0 | Документация и архитектурные решения | 0.5 | 1 | ✅ закрыт |
 | 1 | Базовая инфраструктура (Django + Docker + core) | 1.5 | 1 | ✅ закрыт |
 | 2 | Аутентификация (accounts, User+Profile, login/profile) | 2 | 1 | ✅ закрыт |
-| 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | 🔵 текущий |
+| 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | ✅ закрыт |
 | 4 | Задачи (модели, статусы, история, повторение) | 3 | 2 | ⚪ ожидает |
 | 5 | Чаты (модели, polling, страница, мьюты) | 3 | 2 | ⚪ ожидает |
 | 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | ⚪ ожидает |
@@ -298,6 +298,9 @@ Pillow>=10.0
 - Этап 2 закрыт: User + Profile, login/logout готовы.
 - Модель `Chat` ещё не создана (Этап 5) — автосоздание workgroup-чата реализуется
   сигналом в Этапе 5, здесь не трогаем.
+- Код **не монтируется** в контейнер (`docker-compose.yml` копирует код в образ,
+  bind-mount'а нет). Миграции писать вручную на хосте; нейминг — per-app (каждый
+  app начинает с `0001`).
 
 ### Блоки
 
@@ -306,92 +309,170 @@ Pillow>=10.0
 **Что делаем:**
 - Создаём `apps/workgroups/` как Django app
 - `WorkGroup` — поля: `name`, `description`, `parent` FK('self', PROTECT, null=True),
-  `created_by` FK(User), `is_active`; наследует `TimestampedModel`
-- `WorkGroupMembership` — поля: `user`, `workgroup`, `local_role` (member/parent_head/child_head),
-  `added_by`, `is_active`; `unique_together = ('user', 'workgroup')`
-- Регистрируем в `INSTALLED_APPS`
-- `makemigrations` + `migrate`
+  `created_by` FK(User, PROTECT), `is_active`; наследует `TimestampedModel`;
+  `created_at`/`updated_at` разворачиваются из абстрактной модели прямо в миграции
+- `WorkGroupMembership` — поля: `user` FK(User, CASCADE), `workgroup` FK(WorkGroup, CASCADE),
+  `local_role` (TextChoices: member/parent_head/child_head), `added_by` FK(User, SET_NULL, null=True),
+  `is_active`; `unique_together = ('user', 'workgroup')`; индекс `(user, is_active)` по `data_model.md`
+- Регистрируем `apps.workgroups.apps.WorkGroupsConfig` в `INSTALLED_APPS`
+- Миграцию `0001_initial.py` пишем вручную (код не bind-mounted)
+
+Попутно: в `apps/accounts/migrations/` создаём `0003_fix_superuser_roles.py` — data
+migration, которая выставляет `role='admin'` суперпользователям с уже существующим
+Profile. Это устраняет расхождение, если Profile был создан до фикса сигнала.
 
 **Файлы создаются:**
-- `apps/workgroups/__init__.py`, `apps.py`, `models.py`, `admin.py` (заглушка)
+- `apps/workgroups/__init__.py`, `apps.py` (WorkGroupsConfig), `models.py`, `admin.py` (заглушка)
 - `apps/workgroups/migrations/__init__.py`, `0001_initial.py`
+- `apps/accounts/migrations/0003_fix_superuser_roles.py`
+
+**Проверка:**
+- `docker compose up --build -d`
+- `docker compose exec web python manage.py showmigrations accounts workgroups` — все `[X]`
+- `docker compose exec web python manage.py check` — `System check identified no issues`
 
 #### Блок 3.2 — ModelAdmin
 
 **Что делаем:**
 - `WorkGroupAdmin` — `list_display` (name, parent, is_active, created_by),
-  `list_filter` (is_active, parent), `search_fields` (name)
-- `WorkGroupMembershipInline` — в `WorkGroupAdmin`
-- `WorkGroupMembershipAdmin` — отдельно с фильтром по группе и пользователю
+  `list_filter` (is_active, parent), `search_fields` (name),
+  `WorkGroupMembershipInline` (TabularInline, extra=0)
+- `WorkGroupMembershipAdmin` — отдельная регистрация; `list_display` (user, workgroup,
+  local_role, is_active, added_by), `list_filter` (workgroup, local_role, is_active),
+  `search_fields` (user__username, workgroup__name)
 
 **Файлы изменяются:** `apps/workgroups/admin.py`
+
+**Проверка:** `/admin/` → раздел «Рабочие группы» — обе модели видны, Inline работает.
 
 #### Блок 3.3 — Service layer
 
 **Что делаем:**
-- `apps/workgroups/permissions.py` — функции:
-  `can_create_root_group(user)`,
-  `can_create_child_group(user, parent_group)`,
-  `can_add_member(user, workgroup)`,
-  `can_deactivate_group(user, workgroup)`
-- `apps/workgroups/services.py` — функции:
-  `create_group(name, description, parent, created_by)` — создаёт группу;
-  для дочерней автоматически добавляет создателя как `parent_head`;
-  `add_member(actor, user, workgroup, local_role)` — проверяет права, создаёт Membership;
-  `deactivate_group(actor, workgroup)` — рекурсивно деактивирует поддерево + членства
+- `apps/accounts/signals.py` — фикс: при создании нового суперпользователя сигнал
+  теперь выставляет `role=Profile.Role.ADMIN` (а не дефолтный `worker`)
+- `apps/workgroups/permissions.py` — четыре функции (возвращают `bool`):
+  - `can_create_root_group(user)` — только системная роль `admin`
+  - `can_create_child_group(user, parent_group)` — `admin` везде; уровень 2 (родитель
+    корневой): достаточно `headworker`; уровень 3+: нужна локальная роль `parent_head`
+    или `child_head` в группе-родителе
+  - `can_add_member(user, workgroup)` — `admin` везде; корневая группа: только `admin`;
+    дочерняя: `admin` или `parent_head` этой группы
+  - `can_deactivate_group(user, workgroup)` — только `admin`
+- `apps/workgroups/services.py` — три публичных функции + внутренний хелпер:
+  - `create_group(name, description, parent, created_by)` — проверяет право, создаёт
+    WorkGroup; для дочерней автоматически создаёт Membership с `local_role=parent_head`
+  - `add_member(actor, user, workgroup, local_role)` — проверяет право, вызывает
+    `update_or_create` (безопасно при повторном добавлении)
+  - `deactivate_group(actor, workgroup)` — проверяет право, вызывает `_collect_subtree_ids`,
+    затем два `update()` — по WorkGroup и WorkGroupMembership
+  - `_collect_subtree_ids(root_id)` — итеративный BFS без рекурсии; один обход,
+    два запроса на деактивацию вместо N
+
+  Все функции поднимают `PermissionDenied` при недостаточных правах.
 
 **Файлы создаются:** `apps/workgroups/permissions.py`, `apps/workgroups/services.py`
+
+**Файлы изменяются:** `apps/accounts/signals.py`
+
+**Проверка:** `docker compose exec web python manage.py check` — без ошибок.
 
 #### Блок 3.4 — Views и URLs
 
 **Что делаем:**
-- `WorkGroupListView` — список групп: «мои» / «все доступные»; иерархия через отступ
-- AJAX-endpoints для модалок (GET → HTML-фрагмент, POST → действие):
-  `workgroup_create` (форма создания),
-  `workgroup_detail` (детали + участники),
-  `workgroup_add_member` (форма добавления участника),
-  `workgroup_deactivate` (POST-деактивация)
-- `apps/workgroups/urls.py`, подключаем в `config/urls.py`
+- `apps/workgroups/forms.py`:
+  - `WorkGroupForm` — два поля: `name`, `description` с Bootstrap-классами
+  - `UserChoiceField(ModelChoiceField)` — переопределяет `label_from_instance` для
+    отображения ФИ вместо username
+  - `AddMemberForm` — поля: `user` (UserChoiceField, только активные, сортировка по ФИ),
+    `local_role` (ChoiceField из WorkGroupMembership.LocalRole)
+- `apps/workgroups/views.py`:
+  - `_build_tree(groups)` — итеративный DFS; возвращает `[(group, level), ...]`; обрабатывает
+    «осиротевшие» группы (родитель деактивирован), показывая их как корни
+  - `WorkGroupListView(LoginRequiredMixin, View)` — один запрос с `select_related`,
+    передаёт `tree` и `can_create_root` в шаблон
+  - `workgroup_create` — GET → HTML-фрагмент формы; POST → `JsonResponse({'ok': True})`
+    или повторный рендер формы с ошибками; `parent_id` — скрытое поле
+  - `workgroup_detail` — GET → HTML-фрагмент с участниками и дочерними; передаёт
+    флаги прав (`can_add_member`, `can_create_child`, `can_deactivate`)
+  - `workgroup_add_member` — GET/POST аналогично create
+  - `workgroup_deactivate` — только POST; возвращает JSON
+- `apps/workgroups/urls.py` — `app_name = 'workgroups'`; пять маршрутов
+- `config/urls.py` — добавлен `path('workgroups/', include('apps.workgroups.urls'))`;
+  добавлен `staticfiles_urlpatterns()` для раздачи `static/` через Gunicorn в dev
+  (без этого `/static/js/modals.js` возвращал 404 — `runserver` умеет сам, Gunicorn нет)
+- `templates/base.html` — ссылка «Группы» обновлена с `#` на `{% url 'workgroups:list' %}`
 
-**Файлы создаются:**
-- `apps/workgroups/forms.py`, `apps/workgroups/views.py`, `apps/workgroups/urls.py`
+**Файлы создаются:** `apps/workgroups/forms.py`, `apps/workgroups/views.py`,
+`apps/workgroups/urls.py`
 
-**Файлы изменяются:** `config/urls.py`, `templates/base.html` (ссылка «Группы»)
+**Файлы изменяются:** `config/urls.py`, `templates/base.html`
 
-#### Блок 3.5 — Шаблоны
+**Проверка:**
+- `docker compose exec web python manage.py check` — без ошибок
+- `curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/workgroups/` → `200`
+  (редирект на `/login/` → 200 страница входа — роутинг работает)
+
+#### Блок 3.5 — Шаблоны и JavaScript
 
 **Что делаем:**
-- `templates/workgroups/list.html` — список групп, кнопка «Создать» (по правам),
-  дочерние — с визуальным отступом
-- `templates/workgroups/_detail_modal.html` — Bootstrap modal: детали, участники,
-  дочерние группы, кнопки действий (по правам)
-- `templates/workgroups/_form_modal.html` — форма создания/редактирования группы
-- `templates/workgroups/_add_member_modal.html` — форма добавления участника
-- `static/js/modals.js` — `fetch` для загрузки и показа Bootstrap-модалок
+- `templates/workgroups/list.html` — наследует `base.html`; иерархия через
+  `style="padding-left: {{ level|add:1 }}rem;"`; единый Bootstrap modal-контейнер
+  `#wg-modal` с пустым `#wg-modal-body` — контент грузится через fetch
+- `templates/workgroups/_detail_modal.html` — фрагмент (не полная страница);
+  участники + локальные роли (показываются только для дочерних групп); кнопки
+  по правам; переход к дочерней группе через `loadIntoModal` без закрытия модала
+- `templates/workgroups/_form_modal.html` — форма создания; `parent_id` — скрытое
+  поле для дочерней; заголовок меняется в зависимости от `parent`
+- `templates/workgroups/_add_member_modal.html` — поле `local_role` скрыто для
+  корневых групп (там локальные роли не применяются)
+- `static/js/modals.js` — vanilla JS:
+  - `openWgModal(url)` / `loadIntoModal(url)` — fetch GET → вставка HTML в `#wg-modal-body`,
+    показ Bootstrap modal, вызов `bindModalForms()`
+  - `bindModalForms()` — вешает `submit`-обработчик на форму внутри модала
+  - `submitModalForm(form)` — fetch POST; если ответ JSON и `ok: true` → `reload()`;
+    если JSON с `error` → `showModalError()`; если HTML (валидационные ошибки) →
+    заменяет `#wg-modal-body` и снова вызывает `bindModalForms()`
+  - `deactivateGroup(url, name)` — `confirm()` + POST + `reload()` при успехе
+  - `getCsrfToken()` — читает `csrftoken` из cookie для заголовка `X-CSRFToken`
+
+**Файлы создаются:** `templates/workgroups/list.html`, `_detail_modal.html`,
+`_form_modal.html`, `_add_member_modal.html`, `static/js/modals.js`
+
+**Проверка:**
+- `curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/static/js/modals.js` → `200`
+- В браузере: войти, открыть `/workgroups/`, создать корневую группу, открыть детали,
+  создать дочернюю, добавить участника, деактивировать группу
 
 ### Критерии готовности этапа 3
 
-- ✅ `/workgroups/` показывает список групп с иерархией
+- ✅ `/workgroups/` показывает список групп с иерархией (визуальный отступ по уровню)
 - ✅ Создание корневой группы — только `admin`
-- ✅ Создание дочерней — `admin` или `headworker`
+- ✅ Создание дочерней — `admin` (любой уровень), `headworker` (уровень 2),
+  `parent_head`/`child_head` (уровень 3+)
 - ✅ Создатель дочерней автоматически получает `local_role = parent_head`
 - ✅ Добавление участника через модалку с проверкой прав в service layer
-- ✅ Деактивация рекурсивно деактивирует поддерево и членства
+- ✅ Деактивация рекурсивно деактивирует поддерево и членства (BFS, два `UPDATE`)
 - ✅ Неактивные группы скрыты в UI, видны только в `/admin/`
-- ✅ Ссылка «Группы» в навигации работает
+- ✅ Ссылка «Группы» в навигации ведёт на `/workgroups/`
+- ✅ `static/js/modals.js` отдаётся корректно через Gunicorn в dev
+- ✅ Новые суперпользователи получают `role='admin'` через сигнал
 
 ### Точки коммита
 
 После 3.1–3.2: `feat(workgroups): add WorkGroup and WorkGroupMembership models`
-**После 3.5 (обязательно):** `feat: stage 3 — workgroups CRUD and hierarchy ready`
 
-### Риски этапа 3
+**После 3.5 (обязательно):**
 
-| Риск | Вероятность | Митигация |
-|------|-------------|-----------|
-| Рекурсивная деактивация — много запросов | низкая (мало групп в MVP) | `select_related` + итерация |
-| AJAX-модалки — CSRF в fetch | средняя | передавать токен из cookie через JS |
-| Синхронизация с workgroup-чатом | — | отложено до Этапа 5 |
+```text
+feat: stage 3 — workgroups CRUD and hierarchy ready
+
+- WorkGroup + WorkGroupMembership models with migration
+- Service layer: create_group, add_member, deactivate_group
+- Permission layer: role and local_role checks
+- AJAX modal UI: list, detail, create, add_member, deactivate
+- Fix: superuser profile gets role=admin on creation (signal + migration 0003)
+- Fix: static files served via Gunicorn in dev (staticfiles_urlpatterns)
+```
 
 ---
 

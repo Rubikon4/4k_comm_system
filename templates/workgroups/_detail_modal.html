@@ -1,0 +1,61 @@
+<div class="modal-header">
+    <h5 class="modal-title">{{ group.name }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    {% if group.description %}
+    <p class="text-muted mb-3">{{ group.description }}</p>
+    {% endif %}
+
+    <h6 class="fw-semibold">Участники</h6>
+    {% if memberships %}
+    <ul class="list-group list-group-flush mb-3">
+        {% for m in memberships %}
+        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+            <span>{{ m.user.get_full_name|default:m.user.username }}</span>
+            {% if group.parent %}
+            <span class="badge bg-secondary">{{ m.get_local_role_display }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted small mb-3">Участников нет.</p>
+    {% endif %}
+
+    {% if children %}
+    <h6 class="fw-semibold">Дочерние группы</h6>
+    <ul class="list-group list-group-flush mb-3">
+        {% for child in children %}
+        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+            <span>{{ child.name }}</span>
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="loadIntoModal('{% url 'workgroups:detail' child.pk %}')">
+                Открыть
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+<div class="modal-footer flex-wrap gap-2">
+    {% if can_add_member %}
+    <button class="btn btn-outline-primary btn-sm"
+            onclick="loadIntoModal('{% url 'workgroups:add_member' group.pk %}')">
+        + Добавить участника
+    </button>
+    {% endif %}
+    {% if can_create_child %}
+    <button class="btn btn-outline-secondary btn-sm"
+            onclick="loadIntoModal('{% url 'workgroups:create' %}?parent_id={{ group.pk }}')">
+        + Создать подгруппу
+    </button>
+    {% endif %}
+    {% if can_deactivate %}
+    <button class="btn btn-outline-danger btn-sm"
+            onclick="deactivateGroup('{% url 'workgroups:deactivate' group.pk %}', '{{ group.name|escapejs }}')">
+        Деактивировать
+    </button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary btn-sm ms-auto" data-bs-dismiss="modal">Закрыть</button>
+</div>

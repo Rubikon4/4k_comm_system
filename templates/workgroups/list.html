@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Рабочие группы — 4К{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Рабочие группы</h1>
+    {% if can_create_root %}
+        <button class="btn btn-primary" onclick="openWgModal('{% url 'workgroups:create' %}')">
+            + Создать группу
+        </button>
+    {% endif %}
+</div>
+
+{% if tree %}
+<div class="list-group">
+    {% for group, level in tree %}
+    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+         style="padding-left: {{ level|add:1 }}rem;">
+        <div>
+            <span class="fw-semibold">{{ group.name }}</span>
+            {% if group.description %}
+                <small class="text-muted ms-2">{{ group.description|truncatechars:60 }}</small>
+            {% endif %}
+        </div>
+        <button class="btn btn-sm btn-outline-secondary"
+                onclick="openWgModal('{% url 'workgroups:detail' group.pk %}')">
+            Открыть
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">Рабочих групп пока нет.</p>
+{% endif %}
+
+<!-- Универсальный Bootstrap modal для всех операций с группами -->
+<div class="modal fade" id="wg-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div id="wg-modal-body"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/modals.js' %}"></script>
+{% endblock %}

@@ -97,9 +97,9 @@ See `.env.example` for the full list. Key variables:
 |-------|-------------|--------|
 | 0 | Documentation and architecture | ✅ Done |
 | 1 | Base infrastructure (Django + Docker + core) | ✅ Done |
-| 2 | Authentication (accounts, Profile, login) | ⚪ Next |
-| 3 | Workgroups (models, permissions, CRUD) | ⚪ Planned |
-| 4 | Tasks (models, statuses, history) | ⚪ Planned |
+| 2 | Authentication (accounts, Profile, login) | ✅ Done |
+| 3 | Workgroups (models, permissions, CRUD, hierarchy UI) | ✅ Done |
+| 4 | Tasks (models, statuses, history) | ⚪ Next |
 | 5 | Chats (polling, messages, mutes) | ⚪ Planned |
 | 6 | Notifications (throttling, events) | ⚪ Planned |
 | 7 | File attachments (secure download) | ⚪ Planned |

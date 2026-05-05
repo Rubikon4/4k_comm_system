@@ -1,0 +1,27 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {% if parent %}Создать подгруппу в «{{ parent.name }}»{% else %}Создать родительскую группу{% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="wg-form" method="post" action="{% url 'workgroups:create' %}">
+        {% csrf_token %}
+        {% if parent %}
+            <input type="hidden" name="parent_id" value="{{ parent.pk }}">
+        {% endif %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+    <button type="submit" form="wg-form" class="btn btn-primary">Создать</button>
+</div>
