@@ -7,5 +7,5 @@ class BootstrapMixin:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            css_class = 'form-check-input' if isinstance(widget, forms.CheckboxInput) else 'form-control'
+            css_class = 'form-check-input' if isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple)) else 'form-control'
             widget.attrs.setdefault('class', css_class)

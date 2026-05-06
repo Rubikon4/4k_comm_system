@@ -11,6 +11,7 @@ urlpatterns = [
     path('workgroups/', include('apps.workgroups.urls')),
     path('tasks/', include('apps.tasks.urls')),
     path('chats/', include('apps.chats.urls')),
+    path('notifications/', include('apps.notifications.urls')),
 ]
 
 if settings.DEBUG:

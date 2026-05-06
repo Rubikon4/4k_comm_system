@@ -57,6 +57,8 @@ def add_member(actor, user, workgroup, local_role=WorkGroupMembership.LocalRole.
             'is_active': True,
         },
     )
+    from apps.notifications.services import notify_workgroup_added
+    notify_workgroup_added(workgroup, user)
     return membership
 
 

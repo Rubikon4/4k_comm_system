@@ -46,6 +46,8 @@ def create_direct_chat(actor, target_user):
     )
     ChatMembership.objects.create(chat=chat, user=actor, added_by=actor)
     ChatMembership.objects.create(chat=chat, user=target_user, added_by=actor)
+    from apps.notifications.services import notify_chat_added
+    notify_chat_added(chat, target_user)
     return chat
 
 
@@ -68,10 +70,12 @@ def create_custom_chat(actor, name, description, members):
         chat_type=Chat.ChatType.CUSTOM,
         created_by=actor,
     )
+    from apps.notifications.services import notify_chat_added
     ChatMembership.objects.create(chat=chat, user=actor, added_by=actor)
     for member in members:
         if member.pk != actor.pk:
             ChatMembership.objects.create(chat=chat, user=member, added_by=actor)
+            notify_chat_added(chat, member)
     return chat
 
 
@@ -87,7 +91,8 @@ def send_message(actor, chat, text):
         raise PermissionDenied('У вас нет права отправлять сообщения в этот чат.')
 
     message = Message.objects.create(chat=chat, author=actor, text=text.strip())
-    # TODO[stage-6]: notify_chat_new_message(chat, message)
+    from apps.notifications.services import notify_chat_new_message
+    notify_chat_new_message(chat, message)
     return message
 
 
@@ -140,11 +145,14 @@ def add_chat_member(actor, chat, target_user):
     if not can_add_to_custom_chat(actor, target_user):
         raise PermissionDenied('Нет права добавить этого пользователя.')
 
-    membership, _ = ChatMembership.objects.update_or_create(
+    membership, created = ChatMembership.objects.update_or_create(
         chat=chat,
         user=target_user,
         defaults={'added_by': actor, 'is_active': True},
     )
+    if created:
+        from apps.notifications.services import notify_chat_added
+        notify_chat_added(chat, target_user)
     return membership
 
 

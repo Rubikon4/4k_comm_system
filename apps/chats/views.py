@@ -59,7 +59,8 @@ def chat_detail(request, pk):
     ChatMembership.objects.filter(chat=chat, user=request.user).update(
         last_seen_at=timezone.now()
     )
-    # TODO[stage-6]: mark chat notifications as read for request.user
+    from apps.notifications.services import mark_chat_notifications_read
+    mark_chat_notifications_read(chat, request.user)
 
     messages = list(
         Message.objects.filter(chat=chat)

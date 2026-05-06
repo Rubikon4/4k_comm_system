@@ -64,7 +64,8 @@ def add_assignee(actor, task, user):
         action_type=TaskHistory.ActionType.ASSIGNEE_ADDED,
         comment=str(user),
     )
-    # TODO[stage-6]: notify_task_assignee_added(task, actor, user)
+    from apps.notifications.services import notify_task_assigned
+    notify_task_assigned(task, user)
 
 
 def remove_assignee(actor, task, user):
@@ -82,7 +83,6 @@ def remove_assignee(actor, task, user):
         action_type=TaskHistory.ActionType.ASSIGNEE_REMOVED,
         comment=str(user),
     )
-    # TODO[stage-6]: notify_task_assignee_removed(task, actor, user)
 
 
 def update_task(actor, task, data):
@@ -159,7 +159,8 @@ def change_status(actor, task, new_status, comment=''):
     if new_status == Task.Status.HEADDONE and task.is_recurring:
         _create_recurring_clone(task, actor)
 
-    # TODO[stage-6]: notify_task_status_changed(task, actor, old_status, new_status)
+    from apps.notifications.services import notify_task_status_changed
+    notify_task_status_changed(task, actor, new_status)
 
 
 def send_to_review(actor, task, comment=''):
@@ -202,12 +203,14 @@ def _create_recurring_clone(task, actor):
         status=Task.Status.NEW,
     )
 
+    from apps.notifications.services import notify_task_assigned
     for assignment in task.assignees.filter(is_active=True):
         TaskAssignee.objects.create(
             task=clone,
             assignee=assignment.assignee,
             assigned_by=actor,
         )
+        notify_task_assigned(clone, assignment.assignee)
 
     TaskHistory.objects.create(
         task=clone,
