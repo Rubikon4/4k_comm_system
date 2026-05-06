@@ -1,0 +1,134 @@
+{% load task_tags %}
+<div class="modal-header">
+    <h5 class="modal-title">
+        {{ task.title }}
+        <span class="badge {{ task.status|status_class }} ms-2 fs-6">{{ task.get_status_display }}</span>
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+
+    <!-- Мета-информация -->
+    <div class="row g-2 mb-3 text-muted small">
+        <div class="col-6 col-md-3">
+            <div class="fw-semibold text-dark">Приоритет</div>
+            <span class="badge {{ task.priority|priority_class }}">{{ task.get_priority_display }}</span>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="fw-semibold text-dark">Постановщик</div>
+            {{ task.created_by.get_full_name|default:task.created_by.username }}
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="fw-semibold text-dark">Срок</div>
+            {% if task.deadline_date %}{{ task.deadline_date|date:"d.m.Y H:i" }}{% else %}—{% endif %}
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="fw-semibold text-dark">Повторяющаяся</div>
+            {% if task.is_recurring %}Да ({{ task.recurrence_days }} дн.){% else %}Нет{% endif %}
+        </div>
+    </div>
+
+    <!-- Описание -->
+    {% if task.description %}
+    <p class="mb-3">{{ task.description }}</p>
+    {% endif %}
+
+    <!-- Исполнители -->
+    <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="fw-semibold mb-0">Исполнители</h6>
+            {% if can_edit %}
+            <button class="btn btn-sm btn-outline-primary"
+                    onclick="loadIntoTaskModal('{% url 'tasks:add_assignee' task.pk %}')">
+                + Назначить
+            </button>
+            {% endif %}
+        </div>
+        {% if active_assignees %}
+        <ul class="list-group list-group-flush">
+            {% for a in active_assignees %}
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                <span>{{ a.assignee.get_full_name|default:a.assignee.username }}</span>
+                {% if can_edit %}
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="postTaskAction('{% url 'tasks:remove_assignee' task.pk a.assignee.pk %}', 'Снять исполнителя {{ a.assignee.get_full_name|default:a.assignee.username|escapejs }}?')">
+                    Снять
+                </button>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-0">Исполнители не назначены.</p>
+        {% endif %}
+    </div>
+
+    <!-- История -->
+    <div class="accordion" id="history-accordion">
+        <div class="accordion-item border-0">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed px-0 bg-transparent shadow-none fw-semibold"
+                        type="button" data-bs-toggle="collapse" data-bs-target="#history-collapse">
+                    История ({{ history|length }})
+                </button>
+            </h2>
+            <div id="history-collapse" class="accordion-collapse collapse">
+                <div class="accordion-body px-0 pt-1">
+                    {% if history %}
+                    <ul class="list-group list-group-flush">
+                        {% for entry in history %}
+                        <li class="list-group-item px-0 small">
+                            <span class="text-muted">{{ entry.created_at|date:"d.m.Y H:i" }}</span>
+                            <span class="fw-semibold mx-1">{{ entry.actor.get_full_name|default:entry.actor.username }}</span>
+                            — {{ entry.get_action_type_display }}
+                            {% if entry.old_status and entry.new_status %}
+                                <span class="text-muted">({{ entry.old_status }} → {{ entry.new_status }})</span>
+                            {% endif %}
+                            {% if entry.comment %}
+                                <div class="text-muted fst-italic">{{ entry.comment }}</div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0">История пуста.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<div class="modal-footer flex-wrap gap-2">
+    {% if can_inprogress %}
+    <button class="btn btn-sm btn-primary"
+            onclick="loadIntoTaskModal('{% url 'tasks:change_status' task.pk %}?new_status=inprogress')">
+        {% if task.status == 'new' %}Взять в работу{% else %}Вернуть в работу{% endif %}
+    </button>
+    {% endif %}
+    {% if can_review %}
+    <button class="btn btn-sm btn-warning"
+            onclick="loadIntoTaskModal('{% url 'tasks:change_status' task.pk %}?new_status=review')">
+        На уточнение
+    </button>
+    {% endif %}
+    {% if can_workerdone %}
+    <button class="btn btn-sm btn-info text-dark"
+            onclick="loadIntoTaskModal('{% url 'tasks:change_status' task.pk %}?new_status=workerdone')">
+        Выполнено
+    </button>
+    {% endif %}
+    {% if can_headdone %}
+    <button class="btn btn-sm btn-success"
+            onclick="loadIntoTaskModal('{% url 'tasks:change_status' task.pk %}?new_status=headdone')">
+        Завершить
+    </button>
+    {% endif %}
+    {% if can_cancel %}
+    <button class="btn btn-sm btn-outline-danger"
+            onclick="loadIntoTaskModal('{% url 'tasks:change_status' task.pk %}?new_status=cancel')">
+        Отменить
+    </button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary btn-sm ms-auto" data-bs-dismiss="modal">Закрыть</button>
+</div>

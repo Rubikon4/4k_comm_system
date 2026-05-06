@@ -1,0 +1,22 @@
+<div class="modal-header">
+    <h5 class="modal-title">Назначить исполнителей — {{ task.title|truncatechars:40 }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="task-form" method="post" action="{% url 'tasks:add_assignee' task.pk %}">
+        {% csrf_token %}
+        <div class="mb-1">
+            <label class="form-label fw-semibold">{{ form.assignees.label }}</label>
+            {{ form.assignees }}
+            {% if form.assignees.errors %}
+                <div class="invalid-feedback d-block">{{ form.assignees.errors.0 }}</div>
+            {% endif %}
+        </div>
+        <div class="text-muted small">Удерживайте Ctrl (Cmd на Mac), чтобы выбрать несколько.</div>
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="loadIntoTaskModal('{% url 'tasks:detail' task.pk %}')">Назад</button>
+    <button type="submit" form="task-form" class="btn btn-primary btn-sm">Назначить</button>
+</div>

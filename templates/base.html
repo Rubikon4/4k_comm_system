@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -10,6 +11,7 @@
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous"
     >
+    <link rel="icon" href="{% static 'favicon_4k.ico' %}" type="image/x-icon">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -22,7 +24,7 @@
         </button>
         <div class="collapse navbar-collapse" id="navMain">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="#">Задачи</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'tasks:list' %}">Задачи</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'workgroups:list' %}">Группы</a></li>
                 <li class="nav-item"><a class="nav-link" href="#">Чаты</a></li>
             </ul>

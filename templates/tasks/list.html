@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load static task_tags %}
+
+{% block title %}Задачи — 4К{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Задачи</h1>
+    <button class="btn btn-primary btn-sm" onclick="openTaskModal('{% url 'tasks:create' %}')">
+        + Создать задачу
+    </button>
+</div>
+
+<!-- Переключатель вида -->
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if view_mode == 'assigned' %}active{% endif %}"
+           href="?view=assigned&sort={{ sort }}">Назначены мне</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if view_mode == 'created' %}active{% endif %}"
+           href="?view=created&sort={{ sort }}">Назначил я</a>
+    </li>
+</ul>
+
+<!-- Фильтры -->
+<form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="view" value="{{ view_mode }}">
+    <div class="col-auto">
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Все статусы</option>
+            {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="priority" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Все приоритеты</option>
+            {% for val, label in priority_choices %}
+                <option value="{{ val }}" {% if priority_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="deadline" {% if sort == 'deadline' %}selected{% endif %}>По сроку</option>
+            <option value="created" {% if sort == 'created' %}selected{% endif %}>По дате создания</option>
+        </select>
+    </div>
+    {% if status_filter or priority_filter %}
+    <div class="col-auto">
+        <a href="?view={{ view_mode }}&sort={{ sort }}" class="btn btn-outline-secondary btn-sm">Сбросить</a>
+    </div>
+    {% endif %}
+</form>
+
+<!-- Таблица задач -->
+{% if tasks %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Название</th>
+                <th>Статус</th>
+                <th>Приоритет</th>
+                <th>Постановщик</th>
+                <th>Срок</th>
+                <th>Исполнители</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td class="fw-semibold">{{ task.title|truncatechars:50 }}</td>
+                <td>
+                    <span class="badge {{ task.status|status_class }}">
+                        {{ task.get_status_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {{ task.priority|priority_class }}">
+                        {{ task.get_priority_display }}
+                    </span>
+                </td>
+                <td class="text-muted small">{{ task.created_by.get_full_name|default:task.created_by.username }}</td>
+                <td class="text-muted small">
+                    {% if task.deadline_date %}
+                        {{ task.deadline_date|date:"d.m.Y H:i" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td class="text-muted small">
+                    {% with count=task.assignees.all|length %}
+                        {{ count }}
+                    {% endwith %}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            onclick="openTaskModal('{% url 'tasks:detail' task.pk %}')">
+                        Открыть
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-muted">
+    {% if view_mode == 'assigned' %}Нет задач, назначенных вам.
+    {% else %}Нет созданных вами задач.{% endif %}
+</p>
+{% endif %}
+
+<!-- Modal контейнер -->
+<div class="modal fade" id="task-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div id="task-modal-body"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/tasks.js' %}"></script>
+{% endblock %}

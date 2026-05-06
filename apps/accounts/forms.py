@@ -1,17 +1,12 @@
 from django import forms
 from django.contrib.auth.models import User
 
+from apps.core.forms import BootstrapMixin
+
 from .models import Profile
 
 
-class _BootstrapMixin:
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs.setdefault('class', 'form-control')
-
-
-class UserEditForm(_BootstrapMixin, forms.ModelForm):
+class UserEditForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ['last_name', 'first_name', 'email']
@@ -22,7 +17,7 @@ class UserEditForm(_BootstrapMixin, forms.ModelForm):
         }
 
 
-class ProfileEditForm(_BootstrapMixin, forms.ModelForm):
+class ProfileEditForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Profile
         fields = ['patronymic_name', 'position', 'phone', 'avatar']

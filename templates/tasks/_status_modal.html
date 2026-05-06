@@ -1,0 +1,21 @@
+<div class="modal-header">
+    <h5 class="modal-title">Изменить статус → {{ new_status_label }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="task-form" method="post" action="{% url 'tasks:change_status' task.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="new_status" value="{{ new_status }}">
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.comment.id_for_label }}">
+                {{ form.comment.label }} <span class="text-muted fw-normal">(необязательно)</span>
+            </label>
+            {{ form.comment }}
+        </div>
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm"
+            onclick="loadIntoTaskModal('{% url 'tasks:detail' task.pk %}')">Назад</button>
+    <button type="submit" form="task-form" class="btn btn-primary btn-sm">Подтвердить</button>
+</div>

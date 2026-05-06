@@ -9,6 +9,7 @@ urlpatterns = [
     path('', include('apps.accounts.urls')),
     path('', include('apps.core.urls')),
     path('workgroups/', include('apps.workgroups.urls')),
+    path('tasks/', include('apps.tasks.urls')),
 ]
 
 if settings.DEBUG:

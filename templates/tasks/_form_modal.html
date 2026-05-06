@@ -1,0 +1,58 @@
+{% load static %}
+<div class="modal-header">
+    <h5 class="modal-title">Создать задачу</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="task-form" method="post" action="{% url 'tasks:create' %}">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+            {{ form.description }}
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
+                {{ form.priority }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold" for="{{ form.deadline_date.id_for_label }}">{{ form.deadline_date.label }}</label>
+                {{ form.deadline_date }}
+            </div>
+        </div>
+
+        <div class="mb-3 form-check">
+            {{ form.is_recurring }}
+            <label class="form-check-label" for="{{ form.is_recurring.id_for_label }}">{{ form.is_recurring.label }}</label>
+        </div>
+
+        <div id="recurrence-days-row" class="mb-3" style="display:none;">
+            <label class="form-label fw-semibold" for="{{ form.recurrence_days.id_for_label }}">{{ form.recurrence_days.label }}</label>
+            {{ form.recurrence_days }}
+            {% if form.recurrence_days.errors %}<div class="invalid-feedback d-block">{{ form.recurrence_days.errors.0 }}</div>{% endif %}
+        </div>
+
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+    <button type="submit" form="task-form" class="btn btn-primary">Создать</button>
+</div>
+<script>
+(function() {
+    const cb = document.getElementById('id_is_recurring');
+    const row = document.getElementById('recurrence-days-row');
+    if (!cb || !row) return;
+    function toggle() { row.style.display = cb.checked ? '' : 'none'; }
+    toggle();
+    cb.addEventListener('change', toggle);
+})();
+</script>
