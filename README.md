@@ -103,5 +103,5 @@ See `.env.example` for the full list. Key variables:
 | 5 | Chats (polling, messages, mutes, direct/custom) | ✅ Done |
 | 6 | Notifications (throttling, events, unread counter) | ✅ Done |
 | 7 | File attachments (upload, secure download, soft delete) | ✅ Done |
-| 8 | Dashboard (personal workspace) | ⚪ Next |
+| 8 | Dashboard (personal workspace) | ✅ Done |
 | 9 | Final (fixtures, smoke tests, README, deploy check) | ⚪ Planned |

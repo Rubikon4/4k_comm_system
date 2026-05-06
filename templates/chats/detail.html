@@ -22,11 +22,11 @@
         <a href="{% url 'chats:list' %}" class="btn btn-sm btn-outline-secondary me-2">← Чаты</a>
         <span class="h4 mb-0">{{ display_name }}</span>
         {% if chat.chat_type == 'direct' %}
-            <span class="badge bg-secondary ms-2">Личный</span>
+            <span class="badge bg-secondary ms-2">{{ chat.chat_type_label }}</span>
         {% elif chat.chat_type == 'workgroup' %}
-            <span class="badge bg-primary ms-2">Группа</span>
+            <span class="badge bg-primary ms-2">{{ chat.chat_type_label }}</span>
         {% else %}
-            <span class="badge bg-info text-dark ms-2">Групповой</span>
+            <span class="badge bg-success ms-2">{{ chat.chat_type_label }}</span>
         {% endif %}
         {% if not chat.is_writable %}
             <span class="badge bg-warning text-dark ms-1">Только чтение</span>

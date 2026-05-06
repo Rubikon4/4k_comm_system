@@ -49,6 +49,16 @@ class Chat(TimestampedModel):
             )
         ]
 
+    @property
+    def chat_type_label(self):
+        if self.chat_type == self.ChatType.DIRECT:
+            return 'Личный'
+        if self.chat_type == self.ChatType.CUSTOM:
+            return 'Операционный'
+        if self.workgroup and self.workgroup.parent_id is None:
+            return 'Чат команды'
+        return 'Чат внутренней команды'
+
     def __str__(self):
         return f'{self.name} ({self.get_chat_type_display()})'
 

@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'apps.chats.apps.ChatsConfig',
     'apps.notifications.apps.NotificationsConfig',
     'apps.attachments.apps.AttachmentsConfig',
+    'apps.dashboard.apps.DashboardConfig',
 ]
 
 MIDDLEWARE = [

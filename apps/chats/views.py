@@ -28,7 +28,7 @@ def chat_list(request):
             is_active=True,
         )
         .annotate(last_message_text=Subquery(last_msg_subquery))
-        .select_related('created_by')
+        .select_related('created_by', 'workgroup')
         .order_by('-updated_at')
         .distinct()
     )

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load task_tags %}
+
+{% block title %}Рабочий стол — 4К{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Рабочий стол</h1>
+    <span class="text-muted">{{ request.user.get_full_name|default:request.user.username }}</span>
+</div>
+
+<!-- Мои задачи -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Мои задачи</span>
+        <a href="{% url 'tasks:list' %}" class="btn btn-outline-secondary btn-sm">Все задачи →</a>
+    </div>
+    <div class="card-body pb-0">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#tab-assigned" role="tab">
+                    Назначены мне
+                    {% if tasks_assigned %}
+                    <span class="badge bg-primary ms-1">{{ tasks_assigned|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-created" role="tab">
+                    Назначил я
+                    {% if tasks_created %}
+                    <span class="badge bg-secondary ms-1">{{ tasks_created|length }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-assigned" role="tabpanel">
+                {% if tasks_assigned %}
+                <div class="list-group list-group-flush mb-3">
+                    {% for task in tasks_assigned %}
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold">{{ task.title }}</div>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <span class="badge {{ task.status|status_class }}">{{ task.get_status_display }}</span>
+                                <span class="badge {{ task.priority|priority_class }}">{{ task.get_priority_display }}</span>
+                            </div>
+                        </div>
+                        <div class="text-end ms-3 flex-shrink-0">
+                            {% if task.deadline_date %}
+                            <small class="text-muted d-block">до {{ task.deadline_date|date:"d.m.Y" }}</small>
+                            {% endif %}
+                            <small class="text-muted">{{ task.created_by.get_full_name|default:task.created_by.username }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted pb-3">Нет активных задач.</p>
+                {% endif %}
+            </div>
+            <div class="tab-pane fade" id="tab-created" role="tabpanel">
+                {% if tasks_created %}
+                <div class="list-group list-group-flush mb-3">
+                    {% for task in tasks_created %}
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold">{{ task.title }}</div>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <span class="badge {{ task.status|status_class }}">{{ task.get_status_display }}</span>
+                                <span class="badge {{ task.priority|priority_class }}">{{ task.get_priority_display }}</span>
+                            </div>
+                        </div>
+                        {% if task.deadline_date %}
+                        <small class="text-muted ms-3 flex-shrink-0">до {{ task.deadline_date|date:"d.m.Y" }}</small>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted pb-3">Нет активных задач.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Три нижних блока -->
+<div class="row g-4">
+
+    <!-- Мои группы -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Мои группы</span>
+                <a href="{% url 'workgroups:list' %}" class="btn btn-outline-secondary btn-sm">Все →</a>
+            </div>
+            <div class="card-body p-0">
+                {% if my_memberships %}
+                <ul class="list-group list-group-flush">
+                    {% for m in my_memberships %}
+                    <li class="list-group-item">
+                        <div class="fw-semibold">{{ m.workgroup.name }}</div>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            <span class="badge bg-secondary small">{{ m.get_local_role_display }}</span>
+                            {% if m.workgroup.parent %}
+                            <span class="badge bg-light text-muted border small">↳ {{ m.workgroup.parent.name }}</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted p-3 mb-0">Вы не состоите ни в одной группе.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Мои чаты -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Мои чаты</span>
+                <a href="{% url 'chats:list' %}" class="btn btn-outline-secondary btn-sm">Все →</a>
+            </div>
+            <div class="card-body p-0">
+                {% if my_chat_memberships %}
+                <ul class="list-group list-group-flush">
+                    {% for m in my_chat_memberships %}
+                    <li class="list-group-item">
+                        <a href="{% url 'chats:detail' m.chat.pk %}"
+                           class="d-flex justify-content-between align-items-center text-decoration-none text-dark">
+                            <div>
+                                <span class="fw-semibold">
+                                    {% if m.chat.chat_type == 'direct' %}
+                                        {{ m.chat.name }}
+                                    {% else %}
+                                        {{ m.chat.name }}
+                                    {% endif %}
+                                </span>
+                                <span class="badge
+                                    {% if m.chat.chat_type == 'direct' %}bg-secondary
+                                    {% elif m.chat.chat_type == 'workgroup' %}bg-primary
+                                    {% else %}bg-success{% endif %} ms-1 small">
+                                    {{ m.chat.chat_type_label }}
+                                </span>
+                            </div>
+                            {% if m.has_unread %}
+                            <span class="badge bg-danger rounded-pill ms-2">●</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted p-3 mb-0">Нет активных чатов.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Уведомления</span>
+                <a href="{% url 'notifications:list' %}" class="btn btn-outline-secondary btn-sm">Все →</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_notifications %}
+                <ul class="list-group list-group-flush">
+                    {% for n in recent_notifications %}
+                    <li class="list-group-item">
+                        <a href="{% url 'notifications:go' n.pk %}"
+                           class="text-decoration-none text-dark d-flex justify-content-between align-items-start">
+                            <span class="small">{{ n.text|truncatechars:60 }}</span>
+                            <small class="text-muted ms-2 text-nowrap">{{ n.created_at|date:"d.m" }}</small>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted p-3 mb-0">Нет новых уведомлений.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
