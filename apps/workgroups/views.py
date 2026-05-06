@@ -12,8 +12,9 @@ from .permissions import (
     can_create_child_group,
     can_create_root_group,
     can_deactivate_group,
+    can_edit_group,
 )
-from .services import add_member, create_group, deactivate_group
+from .services import add_member, create_group, deactivate_group, update_group
 
 
 def _build_tree(groups):
@@ -89,6 +90,7 @@ def workgroup_detail(request, pk):
         'can_add_member': can_add_member(request.user, group),
         'can_create_child': can_create_child_group(request.user, group),
         'can_deactivate': can_deactivate_group(request.user, group),
+        'can_edit': can_edit_group(request.user, group),
     })
 
 
@@ -116,6 +118,29 @@ def workgroup_add_member(request, pk):
         except PermissionDenied as e:
             return JsonResponse({'error': str(e)}, status=403)
     return render(request, 'workgroups/_add_member_modal.html', {'form': form, 'group': group})
+
+
+@login_required
+def workgroup_edit(request, pk):
+    group = get_object_or_404(WorkGroup, pk=pk, is_active=True)
+
+    if request.method == 'GET':
+        form = WorkGroupForm(initial={'name': group.name, 'description': group.description or ''})
+        return render(request, 'workgroups/_edit_modal.html', {'form': form, 'group': group})
+
+    form = WorkGroupForm(request.POST)
+    if form.is_valid():
+        try:
+            update_group(
+                actor=request.user,
+                workgroup=group,
+                name=form.cleaned_data['name'],
+                description=form.cleaned_data.get('description', ''),
+            )
+            return JsonResponse({'ok': True})
+        except PermissionDenied as e:
+            return JsonResponse({'error': str(e)}, status=403)
+    return render(request, 'workgroups/_edit_modal.html', {'form': form, 'group': group})
 
 
 @login_required

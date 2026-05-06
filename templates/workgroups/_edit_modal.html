@@ -1,0 +1,27 @@
+<div class="modal-header">
+    <h5 class="modal-title">Редактировать «{{ group.name }}»</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+</div>
+<div class="modal-body">
+    <form id="wg-form" method="post" action="{% url 'workgroups:edit' group.pk %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+            {{ form.description }}
+        </div>
+        {% if not group.parent %}
+        <div class="alert alert-info small py-2">
+            Изменение названия родительской группы также обновит название её чата.
+        </div>
+        {% endif %}
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+    <button type="submit" form="wg-form" class="btn btn-primary">Сохранить</button>
+</div>

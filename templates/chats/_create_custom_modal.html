@@ -1,0 +1,40 @@
+<form method="post" action="{% url 'chats:create_custom' %}">
+    {% csrf_token %}
+    <div class="modal-header">
+        <h5 class="modal-title">Новый групповой чат</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+        <div class="mb-3">
+            <label for="{{ form.name.id_for_label }}" class="form-label fw-semibold">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.description.id_for_label }}" class="form-label fw-semibold">{{ form.description.label }}</label>
+            {{ form.description }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.members.label }}</label>
+            {% if form.members.errors %}
+            <div class="text-danger small mb-1">{{ form.members.errors|join:", " }}</div>
+            {% endif %}
+            <div class="border rounded p-2 overflow-auto" style="max-height:180px;">
+                {% for choice in form.members %}
+                <div class="form-check">
+                    {{ choice.tag }}
+                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                        {{ choice.choice_label }}
+                    </label>
+                </div>
+                {% empty %}
+                <span class="text-muted small">Нет доступных пользователей.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="submit" class="btn btn-primary">Создать чат</button>
+    </div>
+</form>

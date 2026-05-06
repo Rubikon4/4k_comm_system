@@ -28,6 +28,7 @@ from .services import (
     head_done,
     remove_assignee,
     send_to_review,
+    update_task,
     worker_done,
 )
 
@@ -168,6 +169,34 @@ def task_add_assignee(request, pk):
             return JsonResponse({'error': '; '.join(errors)}, status=403)
         return JsonResponse({'ok': True})
     return render(request, 'tasks/_add_assignee_modal.html', {'form': form, 'task': task})
+
+
+@login_required
+def task_edit(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    if not can_edit_task(request.user, task):
+        raise PermissionDenied('Нет прав для редактирования задачи.')
+
+    if request.method == 'GET':
+        initial = {
+            'title': task.title,
+            'description': task.description or '',
+            'deadline_date': task.deadline_date.strftime('%Y-%m-%dT%H:%M') if task.deadline_date else '',
+            'priority': task.priority,
+            'is_recurring': task.is_recurring,
+            'recurrence_days': task.recurrence_days,
+        }
+        form = TaskForm(initial=initial)
+        return render(request, 'tasks/_edit_modal.html', {'form': form, 'task': task})
+
+    form = TaskForm(request.POST)
+    if form.is_valid():
+        try:
+            update_task(actor=request.user, task=task, data=form.cleaned_data)
+            return JsonResponse({'ok': True})
+        except PermissionDenied as e:
+            return JsonResponse({'error': str(e)}, status=403)
+    return render(request, 'tasks/_edit_modal.html', {'form': form, 'task': task})
 
 
 @login_required

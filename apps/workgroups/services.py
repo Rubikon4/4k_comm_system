@@ -1,7 +1,7 @@
 from django.core.exceptions import PermissionDenied
 
 from .models import WorkGroup, WorkGroupMembership
-from .permissions import can_add_member, can_create_child_group, can_create_root_group, can_deactivate_group
+from .permissions import can_add_member, can_create_child_group, can_create_root_group, can_deactivate_group, can_edit_group
 
 
 def create_group(name, description, parent, created_by):
@@ -23,6 +23,11 @@ def create_group(name, description, parent, created_by):
         parent=parent,
         created_by=created_by,
     )
+
+    # Создаём workgroup-чат ДО добавления членства,
+    # чтобы сигнал post_save на WorkGroupMembership нашёл чат и добавил участника.
+    from apps.chats.services import create_workgroup_chat
+    create_workgroup_chat(group, created_by)
 
     if parent is not None:
         WorkGroupMembership.objects.create(
@@ -53,6 +58,28 @@ def add_member(actor, user, workgroup, local_role=WorkGroupMembership.LocalRole.
         },
     )
     return membership
+
+
+def update_group(actor, workgroup, name, description):
+    """
+    Обновляет название и описание группы.
+    Для родительских групп синхронизирует название workgroup-чата.
+    """
+    if not can_edit_group(actor, workgroup):
+        raise PermissionDenied('Нет прав для редактирования группы.')
+
+    workgroup.name = name
+    workgroup.description = description
+    workgroup.save()
+
+    from apps.chats.models import Chat
+    Chat.objects.filter(
+        chat_type=Chat.ChatType.WORKGROUP,
+        workgroup=workgroup,
+        is_active=True,
+    ).update(name=name)
+
+    return workgroup
 
 
 def deactivate_group(actor, workgroup):

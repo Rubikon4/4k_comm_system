@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ display_name }} — 4К{% endblock %}
+
+{% block extra_css %}
+<style>
+#messages-container {
+    height: calc(100vh - 320px);
+    min-height: 300px;
+    overflow-y: auto;
+}
+.message-bubble { max-width: 75%; }
+.message-mine .message-bubble { background: #d1e7dd; margin-left: auto; }
+.message-other .message-bubble { background: #f8f9fa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="{% url 'chats:list' %}" class="btn btn-sm btn-outline-secondary me-2">← Чаты</a>
+        <span class="h4 mb-0">{{ display_name }}</span>
+        {% if chat.chat_type == 'direct' %}
+            <span class="badge bg-secondary ms-2">Личный</span>
+        {% elif chat.chat_type == 'workgroup' %}
+            <span class="badge bg-primary ms-2">Группа</span>
+        {% else %}
+            <span class="badge bg-info text-dark ms-2">Групповой</span>
+        {% endif %}
+        {% if not chat.is_writable %}
+            <span class="badge bg-warning text-dark ms-1">Только чтение</span>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" onclick="openInfoModal()">
+            Участники и настройки
+        </button>
+        {% if can_manage %}
+        <form method="post" action="{% url 'chats:toggle_writable' chat.pk %}"
+              class="d-inline" id="toggle-writable-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                {% if chat.is_writable %}Закрыть чат{% else %}Открыть чат{% endif %}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Лента сообщений -->
+<div id="messages-container" class="border rounded p-3 mb-3 bg-white">
+    {% for msg in messages %}
+    <div class="message d-flex mb-2 {% if msg.author == request.user %}message-mine justify-content-end{% else %}message-other{% endif %}"
+         id="msg-{{ msg.pk }}">
+        <div class="message-bubble rounded p-2 px-3">
+            {% if msg.author != request.user %}
+            <div class="fw-bold small text-primary">
+                {{ msg.author.get_full_name|default:msg.author.username }}
+            </div>
+            {% endif %}
+            {% if msg.is_deleted %}
+            <em class="text-muted">Сообщение удалено</em>
+            {% else %}
+            <div>{{ msg.text|linebreaksbr }}</div>
+            {% endif %}
+            <div class="text-muted" style="font-size:0.75rem;">
+                {{ msg.created_at|date:"d.m.Y H:i" }}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-muted text-center" id="empty-placeholder">Сообщений пока нет.</p>
+    {% endfor %}
+</div>
+
+{% if can_write %}
+<form id="message-form" autocomplete="off">
+    {% csrf_token %}
+    <div class="input-group">
+        {{ form.text }}
+        <button type="submit" class="btn btn-primary">Отправить</button>
+    </div>
+    <div class="text-muted small mt-1">Ctrl+Enter для быстрой отправки</div>
+</form>
+{% else %}
+<div class="alert alert-secondary mb-0">
+    {% if not chat.is_writable %}Чат закрыт для отправки сообщений.
+    {% else %}У вас нет права отправлять сообщения в этот чат.{% endif %}
+</div>
+{% endif %}
+
+<!-- Модалка инфо-панели -->
+<div class="modal fade" id="chat-info-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div id="chat-info-modal-body"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const LAST_MESSAGE_ID = {{ last_message_id }};
+    const CHAT_ID = {{ chat.pk }};
+    const POLLING_URL = "{% url 'chats:polling' chat.pk %}";
+    const SEND_URL = "{% url 'chats:send' chat.pk %}";
+    const INFO_URL = "{% url 'chats:info' chat.pk %}";
+    const CURRENT_USER = "{{ request.user.get_full_name|default:request.user.username|escapejs }}";
+</script>
+<script src="{% static 'js/chat.js' %}"></script>
+
+<script>
+// --- Инфо-модалка ---
+function openInfoModal() {
+    fetch(INFO_URL, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.text())
+        .then(html => {
+            document.getElementById('chat-info-modal-body').innerHTML = html;
+            bootstrap.Modal.getOrCreateInstance(
+                document.getElementById('chat-info-modal')
+            ).show();
+            bindInfoModalForms();
+        });
+}
+
+function bindInfoModalForms() {
+    const form = document.getElementById('add-chat-member-form');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const checked = form.querySelectorAll('input[name="users"]:checked');
+        if (!checked.length) return;
+        fetch(form.dataset.url, {
+            method: 'POST',
+            headers: {'X-CSRFToken': getCsrfToken()},
+            body: new FormData(form),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) openInfoModal();
+            else alert(data.error || 'Ошибка при добавлении участника.');
+        });
+    });
+}
+
+function chatMemberAction(url, name, userId, confirmMsg) {
+    if (!confirm(confirmMsg)) return;
+    const body = new FormData();
+    body.append('user_id', userId);
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: body,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) openInfoModal();
+        else alert(data.error || 'Ошибка.');
+    });
+}
+
+function removeChatMember(url, name) {
+    if (!confirm(`Удалить участника «${name}» из чата?`)) return;
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) openInfoModal();
+        else alert(data.error || 'Ошибка.');
+    });
+}
+
+// --- Toggle writable ---
+{% if can_manage %}
+document.getElementById('toggle-writable-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch(this.action, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+    }).then(() => window.location.reload());
+});
+{% endif %}
+</script>
+{% endblock %}

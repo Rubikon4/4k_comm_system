@@ -1,0 +1,96 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {{ chat.name }}
+        <span class="badge bg-secondary ms-2 fs-6">{{ chat.get_chat_type_display }}</span>
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+
+    {% if not chat.is_writable %}
+    <div class="alert alert-warning py-2 mb-3">Чат закрыт для отправки сообщений.</div>
+    {% endif %}
+
+    {% if chat.description %}
+    <p class="text-muted mb-3">{{ chat.description }}</p>
+    {% endif %}
+
+    <!-- Участники -->
+    <h6 class="fw-semibold">Участники</h6>
+
+    {% if chat.chat_type == 'workgroup' %}
+    <div class="alert alert-info small py-2 mb-2">
+        Состав управляется рабочей группой «{{ chat.workgroup.name }}».
+        Добавлять и удалять участников вручную нельзя.
+    </div>
+    {% endif %}
+
+    <ul class="list-group list-group-flush mb-3">
+        {% for m in memberships %}
+        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+            <div>
+                <span>{{ m.user.get_full_name|default:m.user.username }}</span>
+                {% if not m.can_write %}
+                <span class="badge bg-warning text-dark ms-1">заглушен</span>
+                {% endif %}
+            </div>
+            {% if can_manage %}
+            <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary"
+                        onclick="chatMemberAction('{% url 'chats:toggle_can_write' chat.pk %}',
+                                                  '{{ m.user.get_full_name|default:m.user.username|escapejs }}',
+                                                  {{ m.user.pk }},
+                                                  '{% if m.can_write %}Заглушить{% else %}Разглушить{% endif %} участника?')">
+                    {% if m.can_write %}Заглушить{% else %}Разглушить{% endif %}
+                </button>
+                {% if chat.chat_type == 'custom' %}
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="removeChatMember('{% url 'chats:remove_member' chat.pk m.user.pk %}',
+                                                  '{{ m.user.get_full_name|default:m.user.username|escapejs }}')">
+                    Удалить
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="list-group-item px-0 text-muted small">Участников нет.</li>
+        {% endfor %}
+    </ul>
+
+    <!-- Добавить участников (только custom + can_manage) -->
+    {% if can_manage and chat.chat_type == 'custom' %}
+    <div class="border-top pt-3">
+        <h6 class="fw-semibold">Добавить участников</h6>
+        {% if add_member_form %}
+        <form id="add-chat-member-form" data-url="{% url 'chats:add_member' chat.pk %}">
+            {% csrf_token %}
+            <div class="border rounded p-2 overflow-auto mb-2" style="max-height:150px;">
+                {% for choice in add_member_form.users %}
+                <div class="form-check">
+                    {{ choice.tag }}
+                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                        {{ choice.choice_label }}
+                    </label>
+                </div>
+                {% empty %}
+                <span class="text-muted small">Нет доступных пользователей.</span>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-outline-primary btn-sm">Добавить выбранных</button>
+        </form>
+        {% else %}
+        <p class="text-muted small mb-0">Нет доступных пользователей для добавления.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Файлы (будут доступны в следующем обновлении) -->
+    <div class="border-top pt-3 mt-3 text-muted small fst-italic">
+        Файлы — будут доступны после реализации вложений.
+    </div>
+
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+</div>

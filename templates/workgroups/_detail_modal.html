@@ -39,6 +39,12 @@
     {% endif %}
 </div>
 <div class="modal-footer flex-wrap gap-2">
+    {% if can_edit %}
+    <button class="btn btn-outline-secondary btn-sm"
+            onclick="loadIntoModal('{% url 'workgroups:edit' group.pk %}')">
+        Редактировать
+    </button>
+    {% endif %}
     {% if can_add_member %}
     <button class="btn btn-outline-primary btn-sm"
             onclick="loadIntoModal('{% url 'workgroups:add_member' group.pk %}')">

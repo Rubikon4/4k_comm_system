@@ -130,5 +130,11 @@
         Отменить
     </button>
     {% endif %}
-    <button type="button" class="btn btn-secondary btn-sm ms-auto" data-bs-dismiss="modal">Закрыть</button>
+    {% if can_edit %}
+    <button class="btn btn-sm btn-outline-secondary ms-auto"
+            onclick="loadIntoTaskModal('{% url 'tasks:edit' task.pk %}')">
+        Редактировать
+    </button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary btn-sm {% if not can_edit %}ms-auto{% endif %}" data-bs-dismiss="modal">Закрыть</button>
 </div>

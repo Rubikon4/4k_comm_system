@@ -85,6 +85,41 @@ def remove_assignee(actor, task, user):
     # TODO[stage-6]: notify_task_assignee_removed(task, actor, user)
 
 
+def update_task(actor, task, data):
+    """
+    Обновляет поля задачи. Записывает TaskHistory для изменения дедлайна и приоритета.
+    data — dict с полями TaskForm: title, description, deadline_date, priority,
+           is_recurring, recurrence_days.
+    """
+    if not can_edit_task(actor, task):
+        raise PermissionDenied('Нет прав для редактирования задачи.')
+
+    if data.get('deadline_date') != task.deadline_date:
+        TaskHistory.objects.create(
+            task=task,
+            actor=actor,
+            action_type=TaskHistory.ActionType.DEADLINE_CHANGED,
+            comment=f'{task.deadline_date} → {data.get("deadline_date")}',
+        )
+
+    if data.get('priority') and data['priority'] != task.priority:
+        TaskHistory.objects.create(
+            task=task,
+            actor=actor,
+            action_type=TaskHistory.ActionType.PRIORITY_CHANGED,
+            comment=f'{task.priority} → {data["priority"]}',
+        )
+
+    task.title = data.get('title', task.title)
+    task.description = data.get('description', task.description)
+    task.deadline_date = data.get('deadline_date')
+    task.priority = data.get('priority', task.priority)
+    task.is_recurring = data.get('is_recurring', False)
+    task.recurrence_days = data.get('recurrence_days')
+    task.save()
+    return task
+
+
 def change_status(actor, task, new_status, comment=''):
     """
     Выполняет переход статуса task → new_status.

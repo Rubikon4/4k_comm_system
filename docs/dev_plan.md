@@ -14,14 +14,14 @@
 | 2 | Аутентификация (accounts, User+Profile, login/profile) | 2 | 1 | ✅ закрыт |
 | 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | ✅ закрыт |
 | 4 | Задачи (модели, статусы, история, повторение) | 3 | 2 | ✅ закрыт |
-| 5 | Чаты (модели, polling, страница, мьюты) | 3 | 2 | 🔵 текущий |
-| 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | ⚪ ожидает |
+| 5 | Чаты (модели, polling, страница, мьюты) | 3 | 2 | ✅ закрыт |
+| 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | 🔵 текущий |
 | 7 | Файлы (Attachment, защищённое скачивание, валидация) | 1.5 | 1 | ⚪ ожидает |
 | 8 | Dashboard (срез, счётчики) | 1 | 1 | ⚪ ожидает |
 | 9 | Финал (smoke-тесты, fixtures, README, защита) | 1.5 | 1 | ⚪ ожидает |
 
 Итого: 18.5 дней + 1.5 запас = 20 дней.
-Прогресс: 4 этапа закрыты за 3 дня (4–6 мая). Темп опережает план.
+Прогресс: 5 этапов закрыты (4–6 мая). Темп опережает план.
 
 ---
 
@@ -83,7 +83,56 @@ Commit: `feat: stage 4 — tasks with status lifecycle and history`.
 
 ---
 
-## Этап 5 — Чаты 🔵
+### Этап 5 — Чаты ✅
+
+Готово: `apps/chats/` — модели `Chat` (3 типа: `direct` / `workgroup` / `custom`,
+`CheckConstraint` для поля `workgroup`), `ChatMembership` (`can_write`, `last_seen_at`,
+`is_active`), `Message` (`is_deleted` для мягкого удаления); миграция `0001_initial`;
+`admin.py` с инлайнами.
+
+`services.py`: `create_workgroup_chat` (вызывается из `workgroups/services.py::create_group`),
+`create_direct_chat` (с дедупликацией — возвращает существующий чат),
+`create_custom_chat`, `send_message`, `sync_workgroup_chat_members` (синхронизация состава
+с WorkGroupMembership), `add_chat_member` / `remove_chat_member` (только для `custom`),
+`toggle_chat_writable`, `toggle_member_can_write`.
+
+Django **signal** `post_save` на `WorkGroupMembership` в `apps/workgroups/signals.py`
+вызывает `sync_workgroup_chat_members`; подключён в `workgroups/apps.py::AppConfig.ready()`.
+Деферированные импорты внутри тел функций предотвращают циклические импорты
+(`workgroups` → `chats`).
+
+Views (`apps/chats/views.py`): список чатов (с `last_message` через `Subquery`),
+страница чата (`chat_detail`: обновляет `last_seen_at`), polling-endpoint
+(`GET /chats/<pk>/messages/?since=<id>` — JSON), `send_message`, создание direct/custom,
+инфо-панель (`/chats/<pk>/info/`), управление участниками и режимами записи.
+
+Templates: `list.html` с бейджами типа и превью, `detail.html` с формой отправки,
+модалки `_create_direct_modal.html`, `_create_custom_modal.html` (CheckboxSelectMultiple),
+`_info_modal.html` (участники, мьют, удаление для custom).
+
+JS: `static/js/chat.js` — `lastMessageId`, `pollMessages` (пауза при `document.hidden`),
+`startPolling/stopPolling`, `visibilitychange`, отправка через `fetch`, Ctrl+Enter.
+
+Дополнительно реализовано в рамках этого этапа:
+- **Редактирование групп**: `update_group` в `workgroups/services.py` (синхронизирует имя
+  `workgroup`-чата при изменении названия родительской группы); `can_edit_group` в
+  `workgroups/permissions.py`; view `workgroup_edit`, URL `<pk>/edit/`, шаблон
+  `_edit_modal.html`.
+- **Редактирование задач**: `update_task` в `tasks/services.py` (записывает
+  `DEADLINE_CHANGED`/`PRIORITY_CHANGED` в историю); view `task_edit`, URL `<pk>/edit/`,
+  шаблон `_edit_modal.html`.
+- **Исправления**: hidden-поле `local_role` для родительских групп (AddMemberForm
+  не проходил валидацию); `TaskHistoryAdmin.has_delete_permission` теперь возвращает
+  `True` для superuser (разблокировано удаление пользователя из Admin).
+- **UX**: подтверждение перед созданием чата, CheckboxSelectMultiple вместо SelectMultiple
+  в форме участников custom-чата.
+
+Точки расширения `# TODO[stage-6]` в service layer: `notify_task_assignee_added`,
+`notify_task_assignee_removed`, `notify_task_status_changed`, `notify_chat_new_message`.
+
+---
+
+## Этап 5 — Чаты (архив плана, закрыт)
 
 **Цель:** три типа чатов (`direct`, `workgroup`, `custom`), отправка сообщений,
 **polling** каждые 5 секунд для обновления.

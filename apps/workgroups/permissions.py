@@ -58,6 +58,18 @@ def can_add_member(user, workgroup):
     return _has_local_role(user, workgroup, 'parent_head')
 
 
+def can_edit_group(user, workgroup):
+    """
+    Редактировать название и описание группы.
+    Корневая: только admin. Дочерняя: admin или parent_head.
+    """
+    if _is_admin(user):
+        return True
+    if workgroup.parent is None:
+        return False
+    return _has_local_role(user, workgroup, 'parent_head')
+
+
 def can_deactivate_group(user, workgroup):
     """Деактивировать группу — только admin."""
     return _is_admin(user)

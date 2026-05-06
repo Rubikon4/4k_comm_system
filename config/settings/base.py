@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     'apps.accounts.apps.AccountsConfig',
     'apps.workgroups.apps.WorkGroupsConfig',
     'apps.tasks.apps.TasksConfig',
+    'apps.chats.apps.ChatsConfig',
 ]
 
 MIDDLEWARE = [
