@@ -85,6 +85,45 @@ function postTaskAction(url, confirmMsg) {
     });
 }
 
+function uploadTaskAttachment(formEl, uploadUrl, reloadUrl) {
+    const fileInput = formEl.querySelector('input[type="file"]');
+    if (!fileInput || !fileInput.files.length) {
+        alert('Выберите файл для загрузки.');
+        return;
+    }
+    fetch(uploadUrl, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: new FormData(formEl),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            loadIntoTaskModal(reloadUrl);
+        } else {
+            alert(data.error || 'Ошибка загрузки файла.');
+        }
+    })
+    .catch(() => alert('Ошибка сети.'));
+}
+
+function deleteTaskAttachment(deleteUrl, reloadUrl, name) {
+    if (!confirm(`Удалить файл «${name}»?`)) return;
+    fetch(deleteUrl, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            loadIntoTaskModal(reloadUrl);
+        } else {
+            alert(data.error || 'Ошибка удаления файла.');
+        }
+    })
+    .catch(() => alert('Ошибка сети.'));
+}
+
 // Скрывает/показывает поле recurrence_days в зависимости от is_recurring
 document.addEventListener('DOMContentLoaded', function () {
     const recurringCheckbox = document.getElementById('id_is_recurring');

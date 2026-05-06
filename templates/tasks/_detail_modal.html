@@ -63,6 +63,39 @@
         {% endif %}
     </div>
 
+    <!-- Вложения -->
+    <div class="mb-3">
+        <h6 class="fw-semibold mb-1">Вложения</h6>
+        {% if attachments %}
+        <ul class="list-group list-group-flush mb-2">
+            {% for a in attachments %}
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center small">
+                <a href="{% url 'attachments:download' a.pk %}" class="text-truncate me-2 text-decoration-none">{{ a.original_name }}</a>
+                {% if can_edit or a.uploaded_by == request.user %}
+                <button class="btn btn-sm btn-outline-danger flex-shrink-0"
+                        onclick="deleteTaskAttachment('{% url 'tasks:delete_attachment' task.pk a.pk %}', '{% url 'tasks:detail' task.pk %}', '{{ a.original_name|escapejs }}')">
+                    Удалить
+                </button>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-2">Файлов нет.</p>
+        {% endif %}
+        <form id="task-attach-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="input-group input-group-sm">
+                <input type="file" name="file" class="form-control"
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.7z">
+                <button type="button" class="btn btn-outline-secondary"
+                        onclick="uploadTaskAttachment(this.closest('form'), '{% url 'tasks:attach' task.pk %}', '{% url 'tasks:detail' task.pk %}')">
+                    Прикрепить
+                </button>
+            </div>
+        </form>
+    </div>
+
     <!-- История -->
     <div class="accordion" id="history-accordion">
         <div class="accordion-item border-0">

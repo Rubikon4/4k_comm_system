@@ -258,19 +258,38 @@ Django **signal** (`post_save` на `WorkGroupMembership`) в `apps/workgroups/s
 ## 8. Файлы и вложения
 
 Файлы крепятся **только** к `Task`, `Message` или `WorkGroup`.
+Реализовано в `attachments/permissions.py` (`can_download`, `can_delete_attachment`).
 
-| Действие | Кто может |
-|----------|-----------|
-| Прикрепить файл к задаче | постановщик, активный исполнитель или `admin` |
-| Прикрепить файл к сообщению | автор сообщения (в момент отправки) |
-| Прикрепить файл к группе | `parent_head` этой группы или `admin` |
-| Скачать файл задачи | постановщик, активный исполнитель или `admin` |
-| Скачать файл сообщения | активный участник этого чата или `admin` |
-| Скачать файл группы | активный участник этой группы или `admin` |
-| Удалить вложение | загрузивший пользователь или `admin` |
+### Загрузка
 
-Скачивание реализуется только через защищённый view с проверкой прав
+| Куда | Кто может загрузить |
+|------|---------------------|
+| К задаче | любой, кто может видеть задачу: постановщик, активный исполнитель, `admin` |
+| В сообщение чата | автор сообщения (при отправке) |
+| К рабочей группе | любой активный участник группы или `admin` |
+
+### Скачивание (`can_download`)
+
+| Откуда | Кто может скачать |
+|--------|------------------|
+| Файл задачи | постановщик, активный исполнитель, `admin` |
+| Файл сообщения | активный участник этого чата, `admin` |
+| Файл группы | активный участник этой группы, `admin` |
+
+Скачивание — только через защищённый view `/attachments/<id>/download/`
 (см. [docs/architecture.md](architecture.md), раздел 3).
+
+### Удаление (мягкое, `can_delete_attachment`)
+
+Право удалить файл есть у:
+1. `admin` — всегда;
+2. пользователя, который загрузил файл (`uploaded_by`);
+3. пользователя с правами **редактирования родительского объекта**:
+   - для задачи: `can_edit_task` (постановщик или `admin`);
+   - для сообщения: `can_manage_chat` (создатель чата или `admin`);
+   - для группы: `can_edit_group` (`parent_head` этой группы или `admin`).
+
+Физически запись не удаляется. Помечается `is_deleted=True` + `deleted_by` + `deleted_at`.
 
 ## 9. Уведомления
 
@@ -302,3 +321,48 @@ Django **signal** (`post_save` на `WorkGroupMembership`) в `apps/workgroups/s
 
 Обязательный и единственный надёжный рубеж — **service layer**.
 Остальные слои — для удобства и UX, но не как замена проверке в сервисе.
+
+## 12. Справочник функций can_*
+
+Все функции проверки прав. Сигнатуры зафиксированы — изменение ломает вызовы в service layer и шаблонах.
+
+### `apps/workgroups/permissions.py`
+
+| Функция | Что разрешает |
+|---------|---------------|
+| `can_create_root_group(user)` | Создать корневую группу (уровень 1) |
+| `can_create_child_group(user, parent_group)` | Создать дочернюю группу (уровень 2+) |
+| `can_add_member(user, workgroup)` | Добавить участника в группу |
+| `can_edit_group(user, workgroup)` | Изменить название / описание группы |
+| `can_deactivate_group(user, workgroup)` | Деактивировать группу (каскадно) |
+
+### `apps/tasks/permissions.py`
+
+| Функция | Что разрешает |
+|---------|---------------|
+| `can_create_task(user)` | Создать задачу (любой авторизованный) |
+| `can_view_task(user, task)` | Видеть задачу (постановщик / активный исполнитель / admin) |
+| `can_edit_task(user, task)` | Изменять поля, добавлять/снимать исполнителей (постановщик / admin) |
+| `can_assign(user, assignee)` | Назначить конкретного пользователя исполнителем |
+| `can_change_status(user, task, new_status)` | Выполнить конкретный переход статуса |
+| `can_send_to_review(user, task)` | `inprogress → review` (алиас над `can_change_status`) |
+| `can_worker_done(user, task)` | `inprogress → workerdone` |
+| `can_head_done(user, task)` | `workerdone → headdone` |
+| `can_cancel(user, task)` | `* → cancel` |
+
+### `apps/chats/permissions.py`
+
+| Функция | Что разрешает |
+|---------|---------------|
+| `can_view_chat(user, chat)` | Читать сообщения чата (активный участник) |
+| `can_write_to_chat(user, chat)` | Отправлять сообщения (проверяет `is_writable` + `can_write`) |
+| `can_manage_chat(user, chat)` | Управлять чатом: `is_writable`, состав участников, `can_write` участника |
+| `can_create_direct_with(actor, target_user)` | Создать direct-чат с конкретным пользователем |
+| `can_add_to_custom_chat(actor, target_user)` | Добавить пользователя в custom-чат |
+
+### `apps/attachments/permissions.py`
+
+| Функция | Что разрешает |
+|---------|---------------|
+| `can_download(user, attachment)` | Скачать файл (доступ к родительскому объекту) |
+| `can_delete_attachment(user, attachment)` | Мягко удалить файл (см. раздел 8) |

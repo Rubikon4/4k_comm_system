@@ -23,6 +23,16 @@ function removeEmptyPlaceholder() {
     if (placeholder) placeholder.remove();
 }
 
+function renderAttachments(attachments) {
+    if (!attachments || !attachments.length) return '';
+    return attachments.map(att => {
+        const delBtn = att.can_delete
+            ? `<button class="btn btn-link btn-sm text-danger p-0 ms-1" onclick="deleteChatAttachment('${att.delete_url}', '${escapeHtml(att.name)}')">[удалить]</button>`
+            : '';
+        return `<div class="d-flex align-items-center gap-1 mt-1 small"><a href="${att.download_url}" class="text-decoration-none">${escapeHtml(att.name)}</a>${delBtn}</div>`;
+    }).join('');
+}
+
 function appendMessage(msg) {
     removeEmptyPlaceholder();
     const container = document.getElementById('messages-container');
@@ -36,9 +46,14 @@ function appendMessage(msg) {
         ? ''
         : `<div class="fw-bold small text-primary">${escapeHtml(msg.author)}</div>`;
 
-    const body = msg.is_deleted
-        ? '<em class="text-muted">Сообщение удалено</em>'
-        : `<div>${nl2br(msg.text)}</div>`;
+    let body;
+    if (msg.is_deleted) {
+        body = '<em class="text-muted">Сообщение удалено</em>';
+    } else {
+        const textHtml = msg.text ? `<div>${nl2br(msg.text)}</div>` : '';
+        const attsHtml = renderAttachments(msg.attachments);
+        body = textHtml + attsHtml;
+    }
 
     wrapper.innerHTML = `
         <div class="message-bubble rounded p-2 px-3">
@@ -49,6 +64,23 @@ function appendMessage(msg) {
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
+}
+
+function deleteChatAttachment(url, name) {
+    if (!confirm(`Удалить файл «${name}»?`)) return;
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Ошибка удаления файла.');
+        }
+    })
+    .catch(() => alert('Ошибка сети.'));
 }
 
 function pollMessages() {
@@ -95,7 +127,9 @@ if (messageForm) {
         e.preventDefault();
         const textarea = document.getElementById('id_text');
         const text = textarea ? textarea.value.trim() : '';
-        if (!text) return;
+        const fileInput = document.getElementById('id_file');
+        const hasFile = fileInput && fileInput.files.length > 0;
+        if (!text && !hasFile) return;
 
         fetch(SEND_URL, {
             method: 'POST',
@@ -106,6 +140,7 @@ if (messageForm) {
             .then(data => {
                 if (data.ok) {
                     if (textarea) textarea.value = '';
+                    if (fileInput) fileInput.value = '';
                     if (data.message && !document.getElementById(`msg-${data.message.id}`)) {
                         appendMessage(data.message);
                         lastMessageId = Math.max(lastMessageId, data.message.id);

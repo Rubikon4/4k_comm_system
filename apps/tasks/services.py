@@ -11,6 +11,7 @@ from .permissions import (
     can_change_status,
     can_create_task,
     can_edit_task,
+    can_view_task,
 )
 
 
@@ -224,6 +225,36 @@ def _create_recurring_clone(task, actor):
         comment=f'Клон: id={clone.id}',
     )
     return clone
+
+
+def attach_to_task(actor, task, file):
+    """Прикрепляет файл к задаче. Пишет TaskHistory('attachment_added')."""
+    if not can_view_task(actor, task):
+        raise PermissionDenied('Нет доступа к этой задаче.')
+
+    from apps.attachments.services import upload_attachment
+    attachment = upload_attachment(actor, file, task=task)
+
+    TaskHistory.objects.create(
+        task=task,
+        actor=actor,
+        action_type=TaskHistory.ActionType.ATTACHMENT_ADDED,
+        comment=attachment.original_name,
+    )
+    return attachment
+
+
+def remove_task_attachment(actor, attachment):
+    """Мягкое удаление вложения задачи. Пишет TaskHistory('attachment_removed')."""
+    from apps.attachments.services import delete_attachment
+    delete_attachment(actor, attachment)
+
+    TaskHistory.objects.create(
+        task=attachment.task,
+        actor=actor,
+        action_type=TaskHistory.ActionType.ATTACHMENT_REMOVED,
+        comment=attachment.original_name,
+    )
 
 
 def get_assignable_users(actor):

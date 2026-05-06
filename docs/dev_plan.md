@@ -15,8 +15,8 @@
 | 3 | Рабочие группы (модели, права, дерево, CRUD) | 3 | 2 | ✅ закрыт |
 | 4 | Задачи (модели, статусы, история, повторение) | 3 | 2 | ✅ закрыт |
 | 5 | Чаты (модели, polling, страница, мьюты) | 3 | 2 | ✅ закрыт |
-| 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | 🔵 текущий |
-| 7 | Файлы (Attachment, защищённое скачивание, валидация) | 1.5 | 1 | ⚪ ожидает |
+| 6 | Уведомления (модель, троттлинг, интеграция) | 1.5 | 1 | ✅ закрыт |
+| 7 | Файлы (Attachment, защищённое скачивание, валидация) | 1.5 | 1 | ✅ закрыт |
 | 8 | Dashboard (срез, счётчики) | 1 | 1 | ⚪ ожидает |
 | 9 | Финал (smoke-тесты, fixtures, README, защита) | 1.5 | 1 | ⚪ ожидает |
 
@@ -161,48 +161,46 @@ JS: `static/js/chat.js` — `lastMessageId`, `pollMessages` (пауза при `
 
 ---
 
-## Этап 6 — Уведомления ⚪
+## Этап 6 — Уведомления ✅
 
-**Цель:** модель `Notification`, события из `notifications.md`, троттлинг
-сообщений, счётчик в шапке.
+Commit: `533735e feat: stage 6 — notifications module`.
 
-**Что входит:**
-- модель `Notification`;
-- сервис-функции `notify_*` для каждого события из `notifications.md` раздел 1;
-- троттлинг `chat_new_message` (один непрочитанный на чат на пользователя);
-- view `/notifications/` (список + пометка прочитанным);
-- счётчик непрочитанных в `base.html` через context_processor;
-- замена всех `# TODO[stage-6]` из этапов 4 и 5 на реальные вызовы.
+Готово: `apps/notifications/` — модель `Notification` (8 типов событий через
+`EventType`), `context_processor` со счётчиком непрочитанных в шапке,
+view `/notifications/` (список + пометка прочитанным через AJAX),
+`mark_chat_notifications_read` при открытии страницы чата.
 
-**Блоки:**
-- 6.1 — Model + admin + migrations.
-- 6.2 — Services + интеграция в tasks/chats/workgroups.
-- 6.3 — Views + templates + счётчик в шапке + JS-обновление через polling.
+Сервис-функции: `notify_task_assigned`, `notify_task_status_changed`
+(диспетчеризирует в `_notify_task_sent_to_review` / `_notify_task_worker_done` /
+`_notify_task_head_done` / `_notify_task_status_generic`), `notify_workgroup_added`,
+`notify_chat_added`, `notify_chat_new_message` (с троттлингом).
 
-**Что читать:** `docs/notifications.md` весь, `docs/data_model.md` раздел 5.
+Все `# TODO[stage-6]` в tasks и chats заменены на реальные вызовы.
+
+**Не реализовано (отложено):** `notify_attachment_added` — тип события определён
+в модели, но функция не написана; файловые уведомления — направление развития.
 
 ---
 
-## Этап 7 — Файлы (Attachments) ⚪
+## Этап 7 — Файлы (Attachments) ✅
 
-**Цель:** прикреплять файлы к задачам, сообщениям, группам с защищённым
-скачиванием и валидацией.
+Commit: `533735e feat: stage 7 — file attachments` *(добавить при коммите)*.
 
-**Что входит:**
-- модель `Attachment` (FK на `Task`/`Message`/`WorkGroup` — ровно один не-null,
-  `CheckConstraint` в Meta + `clean()`);
-- валидация: размер ≤ 35 МБ, белый список расширений, MIME через `python-magic`;
-- service `upload_attachment(actor, file, target)`;
-- view `/attachments/<id>/download/` через `FileResponse` с проверкой прав на
-  связанный объект;
-- интеграция в формы задач/сообщений/групп (multipart upload).
+Готово: `apps/attachments/` — модель `Attachment` (FK на Task/Message/WorkGroup,
+ровно один не-null через `CheckConstraint` + `clean()`), `is_deleted` + `deleted_by`
++ `deleted_at` для мягкого удаления.
 
-**Блоки:**
-- 7.1 — Model + migrations + admin.
-- 7.2 — Services (валидация + upload + проверка прав на скачивание).
-- 7.3 — Views + интеграция в существующие формы.
+Сервис: `validate_upload` (размер ≤ 35 МБ, расширения, MIME через python-magic),
+`upload_attachment`, `delete_attachment`.
+Permissions: `can_download`, `can_delete_attachment`.
+Views: `/attachments/<id>/download/` (FileResponse + Content-Disposition),
+`/attachments/<id>/delete/` (POST, мягкое удаление).
 
-**Что читать:** `docs/data_model.md` раздел 6, `docs/architecture.md` раздел 3.
+Интеграция: задачи — `attach_to_task` / `remove_task_attachment` с записью
+TaskHistory; группы — прямой вызов сервиса; чат — файл при отправке сообщения,
+`Message.text` разрешён пустым (миграция `chats/0002`).
+
+Миграция для attachments зависит от tasks/0001, chats/0001, workgroups/0001.
 
 ---
 

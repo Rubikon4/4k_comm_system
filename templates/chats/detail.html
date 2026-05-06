@@ -62,7 +62,18 @@
             {% if msg.is_deleted %}
             <em class="text-muted">Сообщение удалено</em>
             {% else %}
-            <div>{{ msg.text|linebreaksbr }}</div>
+            {% if msg.text %}<div>{{ msg.text|linebreaksbr }}</div>{% endif %}
+            {% for att in msg.attachments.all %}{% if not att.is_deleted %}
+            <div class="d-flex align-items-center gap-1 mt-1 small">
+                <a href="{% url 'attachments:download' att.pk %}" class="text-decoration-none">{{ att.original_name }}</a>
+                {% if att.uploaded_by == request.user %}
+                <button class="btn btn-link btn-sm text-danger p-0 ms-1"
+                        onclick="deleteChatAttachment('{% url 'attachments:delete' att.pk %}', '{{ att.original_name|escapejs }}')">
+                    [удалить]
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}{% endfor %}
             {% endif %}
             <div class="text-muted" style="font-size:0.75rem;">
                 {{ msg.created_at|date:"d.m.Y H:i" }}
@@ -75,11 +86,15 @@
 </div>
 
 {% if can_write %}
-<form id="message-form" autocomplete="off">
+<form id="message-form" autocomplete="off" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="input-group">
+    <div class="mb-2">
         {{ form.text }}
-        <button type="submit" class="btn btn-primary">Отправить</button>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <input type="file" name="file" id="id_file" class="form-control form-control-sm"
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.7z">
+        <button type="submit" class="btn btn-primary flex-shrink-0">Отправить</button>
     </div>
     <div class="text-muted small mt-1">Ctrl+Enter для быстрой отправки</div>
 </form>

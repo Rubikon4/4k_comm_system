@@ -70,6 +70,45 @@ function showModalError(message) {
     el.textContent = message;
 }
 
+function uploadWgAttachment(formEl, uploadUrl, reloadUrl) {
+    const fileInput = formEl.querySelector('input[type="file"]');
+    if (!fileInput || !fileInput.files.length) {
+        alert('Выберите файл для загрузки.');
+        return;
+    }
+    fetch(uploadUrl, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: new FormData(formEl),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            loadIntoModal(reloadUrl);
+        } else {
+            alert(data.error || 'Ошибка загрузки файла.');
+        }
+    })
+    .catch(() => alert('Ошибка сети.'));
+}
+
+function deleteWgAttachment(deleteUrl, reloadUrl, name) {
+    if (!confirm(`Удалить файл «${name}»?`)) return;
+    fetch(deleteUrl, {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            loadIntoModal(reloadUrl);
+        } else {
+            alert(data.error || 'Ошибка удаления файла.');
+        }
+    })
+    .catch(() => alert('Ошибка сети.'));
+}
+
 function deactivateGroup(url, name) {
     if (!confirm(`Деактивировать группу «${name}» и все её подгруппы? Это действие необратимо.`)) return;
     fetch(url, {

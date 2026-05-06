@@ -1,13 +1,14 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 
 from .forms import AddMemberForm, WorkGroupForm
-from .models import WorkGroup
+from .models import WorkGroup, WorkGroupMembership
 from .permissions import (
+    _is_admin,
     can_add_member,
     can_create_child_group,
     can_create_root_group,
@@ -83,14 +84,17 @@ def workgroup_detail(request, pk):
     group = get_object_or_404(WorkGroup, pk=pk, is_active=True)
     memberships = group.memberships.filter(is_active=True).select_related('user', 'user__profile')
     children = group.children.filter(is_active=True).select_related('created_by')
+    attachments = group.attachments.filter(is_deleted=False).select_related('uploaded_by')
+    can_edit = can_edit_group(request.user, group)
     return render(request, 'workgroups/_detail_modal.html', {
         'group': group,
         'memberships': memberships,
         'children': children,
+        'attachments': attachments,
         'can_add_member': can_add_member(request.user, group),
         'can_create_child': can_create_child_group(request.user, group),
         'can_deactivate': can_deactivate_group(request.user, group),
-        'can_edit': can_edit_group(request.user, group),
+        'can_edit': can_edit,
     })
 
 
@@ -141,6 +145,48 @@ def workgroup_edit(request, pk):
         except PermissionDenied as e:
             return JsonResponse({'error': str(e)}, status=403)
     return render(request, 'workgroups/_edit_modal.html', {'form': form, 'group': group})
+
+
+@login_required
+def workgroup_attach(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    group = get_object_or_404(WorkGroup, pk=pk, is_active=True)
+    is_member = WorkGroupMembership.objects.filter(
+        user=request.user, workgroup=group, is_active=True
+    ).exists()
+    if not is_member and not _is_admin(request.user):
+        return JsonResponse({'error': 'Нет доступа к этой группе.'}, status=403)
+
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'error': 'Файл не выбран.'}, status=400)
+
+    from apps.attachments.services import upload_attachment
+    try:
+        upload_attachment(actor=request.user, file=file, workgroup=group)
+        return JsonResponse({'ok': True})
+    except PermissionDenied as e:
+        return JsonResponse({'error': str(e)}, status=403)
+    except ValidationError as e:
+        return JsonResponse({'error': e.message}, status=400)
+
+
+@login_required
+def workgroup_delete_attachment(request, pk, att_pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    group = get_object_or_404(WorkGroup, pk=pk, is_active=True)
+    from apps.attachments.models import Attachment
+    from apps.attachments.services import delete_attachment
+    attachment = get_object_or_404(Attachment, pk=att_pk, workgroup=group, is_deleted=False)
+    try:
+        delete_attachment(request.user, attachment)
+        return JsonResponse({'ok': True})
+    except PermissionDenied as e:
+        return JsonResponse({'error': str(e)}, status=403)
 
 
 @login_required

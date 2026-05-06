@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'apps.tasks.apps.TasksConfig',
     'apps.chats.apps.ChatsConfig',
     'apps.notifications.apps.NotificationsConfig',
+    'apps.attachments.apps.AttachmentsConfig',
 ]
 
 MIDDLEWARE = [

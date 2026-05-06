@@ -8,6 +8,7 @@ class MessageForm(BootstrapMixin, forms.Form):
     text = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 2, 'placeholder': 'Написать сообщение...'}),
         label='',
+        required=False,
     )
 
 

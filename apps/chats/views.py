@@ -65,6 +65,7 @@ def chat_detail(request, pk):
     messages = list(
         Message.objects.filter(chat=chat)
         .select_related('author')
+        .prefetch_related('attachments__uploaded_by')
         .order_by('created_at')[:100]
     )
     last_message_id = messages[-1].pk if messages else 0
@@ -132,20 +133,35 @@ def messages_polling(request, pk):
     except (ValueError, TypeError):
         since_id = 0
 
+    user_can_manage = can_manage_chat(request.user, chat)
+
     new_messages = (
         Message.objects.filter(chat=chat, id__gt=since_id)
         .select_related('author')
+        .prefetch_related('attachments')
         .order_by('id')[:50]
     )
 
     data = []
     for msg in new_messages:
+        atts = []
+        for att in msg.attachments.all():
+            if not att.is_deleted:
+                can_del = user_can_manage or att.uploaded_by_id == request.user.pk
+                atts.append({
+                    'id': att.pk,
+                    'name': att.original_name,
+                    'download_url': reverse('attachments:download', args=[att.pk]),
+                    'delete_url': reverse('attachments:delete', args=[att.pk]),
+                    'can_delete': can_del,
+                })
         data.append({
             'id': msg.pk,
             'author': msg.author.get_full_name() or msg.author.username,
             'text': msg.text if not msg.is_deleted else None,
             'is_deleted': msg.is_deleted,
             'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M'),
+            'attachments': atts,
         })
 
     return JsonResponse({'messages': data})
@@ -159,10 +175,32 @@ def send_message(request, pk):
     if not form.is_valid():
         return JsonResponse({'ok': False, 'error': 'Некорректные данные.'}, status=400)
 
+    text = form.cleaned_data.get('text', '').strip()
+    file = request.FILES.get('file')
+
+    if not text and not file:
+        return JsonResponse({'ok': False, 'error': 'Введите сообщение или прикрепите файл.'}, status=400)
+
     try:
-        msg = services.send_message(request.user, chat, form.cleaned_data['text'])
+        msg = services.send_message(request.user, chat, text)
     except PermissionDenied as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=403)
+
+    atts = []
+    if file:
+        from apps.attachments.services import upload_attachment
+        from django.core.exceptions import ValidationError
+        try:
+            att = upload_attachment(actor=request.user, file=file, message=msg)
+            atts.append({
+                'id': att.pk,
+                'name': att.original_name,
+                'download_url': reverse('attachments:download', args=[att.pk]),
+                'delete_url': reverse('attachments:delete', args=[att.pk]),
+                'can_delete': True,
+            })
+        except ValidationError as e:
+            return JsonResponse({'ok': False, 'error': e.message}, status=400)
 
     return JsonResponse({
         'ok': True,
@@ -172,6 +210,7 @@ def send_message(request, pk):
             'text': msg.text,
             'is_deleted': False,
             'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M'),
+            'attachments': atts,
         },
     })
 

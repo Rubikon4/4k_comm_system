@@ -21,12 +21,14 @@ from .permissions import (
 )
 from .services import (
     add_assignee,
+    attach_to_task,
     cancel_task,
     change_status,
     create_task,
     get_assignable_users,
     head_done,
     remove_assignee,
+    remove_task_attachment,
     send_to_review,
     update_task,
     worker_done,
@@ -95,11 +97,13 @@ def task_detail(request, pk):
 
     history = task.history.select_related('actor').order_by('-created_at')
     active_assignees = task.assignees.filter(is_active=True).select_related('assignee', 'assignee__profile')
+    attachments = task.attachments.filter(is_deleted=False).select_related('uploaded_by')
 
     return render(request, 'tasks/_detail_modal.html', {
         'task': task,
         'history': history,
         'active_assignees': active_assignees,
+        'attachments': attachments,
         'can_edit': can_edit_task(request.user, task),
         'can_inprogress': can_change_status(request.user, task, 'inprogress'),
         'can_review': can_change_status(request.user, task, 'review'),
@@ -107,6 +111,41 @@ def task_detail(request, pk):
         'can_headdone': can_head_done(request.user, task),
         'can_cancel': can_cancel(request.user, task),
     })
+
+
+@login_required
+def task_attach(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    task = get_object_or_404(Task, pk=pk)
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'error': 'Файл не выбран.'}, status=400)
+
+    from django.core.exceptions import ValidationError
+    try:
+        attach_to_task(actor=request.user, task=task, file=file)
+        return JsonResponse({'ok': True})
+    except PermissionDenied as e:
+        return JsonResponse({'error': str(e)}, status=403)
+    except ValidationError as e:
+        return JsonResponse({'error': e.message}, status=400)
+
+
+@login_required
+def task_delete_attachment(request, pk, att_pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    task = get_object_or_404(Task, pk=pk)
+    from apps.attachments.models import Attachment
+    attachment = get_object_or_404(Attachment, pk=att_pk, task=task, is_deleted=False)
+    try:
+        remove_task_attachment(actor=request.user, attachment=attachment)
+        return JsonResponse({'ok': True})
+    except PermissionDenied as e:
+        return JsonResponse({'error': str(e)}, status=403)
 
 
 @login_required

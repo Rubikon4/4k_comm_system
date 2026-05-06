@@ -12,6 +12,7 @@ urlpatterns = [
     path('tasks/', include('apps.tasks.urls')),
     path('chats/', include('apps.chats.urls')),
     path('notifications/', include('apps.notifications.urls')),
+    path('attachments/', include('apps.attachments.urls')),
 ]
 
 if settings.DEBUG:

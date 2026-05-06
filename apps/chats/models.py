@@ -113,7 +113,7 @@ class Message(TimestampedModel):
         related_name='messages',
         verbose_name='Автор',
     )
-    text = models.TextField(verbose_name='Текст')
+    text = models.TextField(blank=True, verbose_name='Текст')
     edited_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата редактирования')
     is_deleted = models.BooleanField(default=False, verbose_name='Удалено')
 
