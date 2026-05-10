@@ -1,0 +1,13 @@
+[run]
+source = apps
+omit =
+    apps/*/migrations/*
+    apps/*/tests/*
+    apps/core/management/*
+
+[report]
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

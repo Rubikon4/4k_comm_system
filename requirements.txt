@@ -1,4 +1,5 @@
 asgiref==3.11.1
+coverage==7.6.12
 Django==5.2.13
 gunicorn==24.1.1
 packaging==26.2

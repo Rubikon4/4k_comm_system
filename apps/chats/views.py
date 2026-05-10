@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.db.models import OuterRef, Subquery
+from django.db.models import Exists, OuterRef, Subquery
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import AddChatMemberForm, CreateCustomChatForm, CreateDirectChatForm, MessageForm
+from apps.notifications.models import Notification
 from .models import Chat, ChatMembership, Message
 from .permissions import can_manage_chat, can_view_chat, can_write_to_chat
 from . import services
@@ -21,13 +22,25 @@ def chat_list(request):
         .order_by('-created_at')
         .values('text')[:1]
     )
+    unread_exists = Exists(
+        Notification.objects.filter(
+            recipient=request.user,
+            event_type=Notification.EventType.CHAT_NEW_MESSAGE,
+            object_type=Notification.ObjectType.CHAT,
+            object_id=OuterRef('pk'),
+            is_read=False,
+        )
+    )
     chats = (
         Chat.objects.filter(
             memberships__user=request.user,
             memberships__is_active=True,
             is_active=True,
         )
-        .annotate(last_message_text=Subquery(last_msg_subquery))
+        .annotate(
+            last_message_text=Subquery(last_msg_subquery),
+            has_unread=unread_exists,
+        )
         .select_related('created_by', 'workgroup')
         .order_by('-updated_at')
         .distinct()
@@ -62,13 +75,13 @@ def chat_detail(request, pk):
     from apps.notifications.services import mark_chat_notifications_read
     mark_chat_notifications_read(chat, request.user)
 
-    messages = list(
+    chat_messages = list(
         Message.objects.filter(chat=chat)
         .select_related('author')
         .prefetch_related('attachments__uploaded_by')
         .order_by('created_at')[:100]
     )
-    last_message_id = messages[-1].pk if messages else 0
+    last_message_id = chat_messages[-1].pk if chat_messages else 0
 
     display_name = chat.name
     if chat.chat_type == Chat.ChatType.DIRECT:
@@ -84,7 +97,7 @@ def chat_detail(request, pk):
     return render(request, 'chats/detail.html', {
         'chat': chat,
         'display_name': display_name,
-        'messages': messages,
+        'chat_messages': chat_messages,
         'form': MessageForm(),
         'can_write': can_write_to_chat(request.user, chat),
         'can_manage': can_manage_chat(request.user, chat),

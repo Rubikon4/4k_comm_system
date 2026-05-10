@@ -26,6 +26,7 @@
         <div class="me-auto overflow-hidden">
             <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="fw-semibold">{{ item.display_name }}</span>
+                {% if item.chat.has_unread %}<span class="text-danger" title="Есть непрочитанные сообщения">●</span>{% endif %}
                 {% if item.chat.chat_type == 'direct' %}
                     <span class="badge bg-secondary">{{ item.chat.chat_type_label }}</span>
                 {% elif item.chat.chat_type == 'workgroup' %}

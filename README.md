@@ -33,6 +33,27 @@ docker compose exec web python manage.py createsuperuser
 App: `http://localhost:8000`
 Admin: `http://localhost:8000/admin/`
 
+## Demo data
+
+Load a full demo environment (7 users, 2 parent groups, 3 child groups, tasks in every status, chat messages):
+
+```bash
+docker compose exec web python manage.py create_demo
+# reset and recreate:
+docker compose exec web python manage.py create_demo --reset
+```
+
+| Login | Password | Role |
+|-------|----------|------|
+| admin | admin1234 | admin |
+| ivanova | demo1234 | headworker |
+| petrov | demo1234 | headworker |
+| sidorova | demo1234 | worker |
+| kozlov | demo1234 | worker |
+| novikova | demo1234 | worker |
+| morozov | demo1234 | worker |
+| kuznetsova | demo1234 | worker |
+
 ## Daily workflow
 
 ```bash
@@ -54,7 +75,7 @@ docker compose logs web     # view logs
 ```
 .
 ├── apps/
-│   ├── core/               # TimestampedModel, base views
+│   ├── core/               # TimestampedModel, base views, management commands
 │   ├── accounts/           # User + Profile, auth (этап 2)
 │   ├── workgroups/         # WorkGroup, membership (этап 3)
 │   ├── tasks/              # Task, history, assignees (этап 4)
@@ -104,4 +125,4 @@ See `.env.example` for the full list. Key variables:
 | 6 | Notifications (throttling, events, unread counter) | ✅ Done |
 | 7 | File attachments (upload, secure download, soft delete) | ✅ Done |
 | 8 | Dashboard (personal workspace) | ✅ Done |
-| 9 | Final (fixtures, smoke tests, README, deploy check) | ⚪ Planned |
+| 9 | Final (demo command, automated tests, smoke tests, fixes) | ✅ Done |

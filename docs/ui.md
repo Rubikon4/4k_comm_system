@@ -138,7 +138,10 @@ Dashboard важен для защиты ВКР: показывает, что с
 
 ## 11. Административная панель (`/admin/`)
 
-Стандартный Django Admin с настроенными `ModelAdmin` для:
+Django Admin с кастомным заголовком «Администрирование 4К» и favicon проекта
+(переопределён шаблон `templates/admin/base_site.html`).
+
+Настроены `ModelAdmin` для:
 - User и Profile (управление пользователями, ролями, блокировка);
 - WorkGroup, WorkGroupMembership;
 - Task, TaskAssignee, TaskHistory;
@@ -146,6 +149,7 @@ Dashboard важен для защиты ВКР: показывает, что с
 - Notification;
 - Attachment.
 
+Встроенный раздел `auth.Group` скрыт — он не используется в системе.
 Для простых аварийных вмешательств. Не заменяет основной интерфейс.
 
 ## 12. Минимальный JavaScript

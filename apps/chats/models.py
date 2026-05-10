@@ -100,7 +100,7 @@ class ChatMembership(TimestampedModel):
 
     class Meta:
         verbose_name = 'Участие в чате'
-        verbose_name_plural = 'Участия в чатах'
+        verbose_name_plural = 'Членство в чатах'
         unique_together = ('chat', 'user')
         indexes = [
             models.Index(fields=['user', 'is_active'], name='cm_user_active_idx'),
